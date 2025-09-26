@@ -1,0 +1,38 @@
+package com.halo.lims.dto.serviceRequest;
+
+import lombok.Data;
+
+import java.math.BigDecimal;
+import java.time.OffsetDateTime;
+import java.util.List;
+
+@Data
+public class ServiceRequestResponse {
+    private Integer id;
+    private String localOrderValue;
+    private Integer patientId;
+    private String patientMrn;
+    private String patientName;
+    private Integer requesterId;
+    private String requesterName;
+    private Integer encounterId;
+    private String encounterLocalValue;
+    private OffsetDateTime orderDate;
+    private String status;
+    private String priority;
+    private Integer organizationId; // Organization of the patient
+    private String organizationName;
+    private List<TestDetailsResponse> requestedTests; // DTO for tests within this request
+    private OffsetDateTime createdAt;
+    private OffsetDateTime updatedAt;
+
+    @Data
+    public static class TestDetailsResponse {
+        private Integer testId;
+        private String testLocalCode;
+        private String testName;
+        private String status; // Status of this specific item in the request
+        private BigDecimal price; // Price at the time of order
+    }
+
+}
