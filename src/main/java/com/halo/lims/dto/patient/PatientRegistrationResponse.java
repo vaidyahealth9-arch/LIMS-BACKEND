@@ -20,4 +20,8 @@ public class PatientRegistrationResponse {
     private Integer organizationId;
     private String contactPhone;
     private String contactEmail;
+    private String addressLine1;
+    private String city;
+    private String state;
+    private String postalCode;
 }

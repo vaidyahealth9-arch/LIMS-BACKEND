@@ -1,5 +1,6 @@
 package com.halo.lims.controller;
 
+import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.patient.AbhaOtpVerificationRequest;
 import com.halo.lims.dto.patient.PatientRegistrationRequest;
 import com.halo.lims.dto.patient.PatientRegistrationResponse;
@@ -49,10 +50,12 @@ public class PatientController {
 
     @GetMapping("/by-organization/{organizationId}/search")
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
-    public ResponseEntity<List<PatientRegistrationResponse>> searchPatientsInOrganization(
+    public ResponseEntity<PagedResponse<PatientRegistrationResponse>> searchPatientsInOrganization(
             @PathVariable Integer organizationId,
-            @RequestParam String query) {
-        List<PatientRegistrationResponse> patients = patientService.searchPatientsInOrganization(organizationId, query);
+            @RequestParam String query,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+        PagedResponse<PatientRegistrationResponse> patients = patientService.searchPatientsInOrganization(organizationId, query, page, size);
         return new ResponseEntity<>(patients, HttpStatus.OK);
     }
 

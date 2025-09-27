@@ -1,5 +1,6 @@
 package com.halo.lims.service;
 
+import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.patient.AbhaOtpVerificationRequest;
 import com.halo.lims.dto.patient.PatientRegistrationRequest;
 import com.halo.lims.dto.patient.PatientRegistrationResponse;
@@ -8,6 +9,9 @@ import com.halo.lims.model.Patient;
 import com.halo.lims.repository.OrganizationRepository;
 import com.halo.lims.repository.PatientRepository;
 import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -141,7 +145,7 @@ public class PatientService {
         // Need a robust, organization-specific sequence for MRNs in a real system.
         // For example: query `patientRepository.countByOrganization(organization)` and increment.
         String suffix = String.format("%04d", (patientRepository.count() + 1)); // Simple global counter for now
-        return "LAB-" + organizationLocalId + "-" + datePart + "-" + suffix;
+        return organizationLocalId + "-" + datePart + "-" + suffix;
     }
 
     private PatientRegistrationResponse mapToPatientRegistrationResponse(Patient patient) {
@@ -158,6 +162,10 @@ public class PatientService {
         response.setCreatedAt(patient.getCreatedAt());
         response.setContactPhone(patient.getContactPhone());
         response.setContactEmail(patient.getContactEmail());
+        response.setAddressLine1(patient.getAddressLine1());
+        response.setCity(patient.getCity());
+        response.setState(patient.getState());
+        response.setPostalCode(patient.getPostalCode());
         // Add organization ID to response
         response.setOrganizationId(patient.getOrganization().getId());
         return response;
@@ -176,18 +184,26 @@ public class PatientService {
 
     // New method for searching patients within an organization
     @Transactional(readOnly = true)
-    public List<PatientRegistrationResponse> searchPatientsInOrganization(
-            Integer organizationId, String query) {
+    public PagedResponse<PatientRegistrationResponse> searchPatientsInOrganization(
+            Integer organizationId, String query, int page, int size) {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
 
-        // This search logic needs to be enhanced (substring, fuzzy, ABHA ID etc. as per PRD)
-        // For now, simple search by first name or last name within the organization
-        return patientRepository.findByOrganizationAndFirstNameContainingIgnoreCaseOrOrganizationAndLastNameContainingIgnoreCase(
-                        organization, query, organization, query)
-                .stream()
+        Pageable pageable = PageRequest.of(page, size);
+        Page<Patient> patientPage = patientRepository.searchPatients(organization, query, pageable);
+
+        List<PatientRegistrationResponse> content = patientPage.getContent().stream()
                 .map(this::mapToPatientRegistrationResponse)
                 .collect(Collectors.toList());
+
+        PagedResponse<PatientRegistrationResponse> response = new PagedResponse<>();
+        response.setContent(content);
+        response.setPage(patientPage.getNumber());
+        response.setSize(patientPage.getSize());
+        response.setTotalElements(patientPage.getTotalElements());
+        response.setTotalPages(patientPage.getTotalPages());
+
+        return response;
     }
 
 }
