@@ -2,6 +2,8 @@ package com.halo.lims.controller;
 
 import com.halo.lims.dto.user.LoginRequest;
 import com.halo.lims.dto.user.LoginResponse;
+import com.halo.lims.model.User;
+import com.halo.lims.repository.UserRepository;
 import com.halo.lims.security.JwtUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -22,6 +24,9 @@ public class AuthController {
     @Autowired
     private JwtUtil jwtUtil;
 
+    @Autowired
+    private UserRepository userRepository;
+
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody LoginRequest authenticationRequest) throws Exception {
         Authentication authentication = authenticationManager.authenticate(
@@ -32,7 +37,16 @@ public class AuthController {
         final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
         final String token = jwtUtil.generateToken(userDetails);
 
-        return ResponseEntity.ok(new LoginResponse(token));
+        User user = userRepository.findByUsername(userDetails.getUsername())
+                .orElseThrow(() -> new Exception("User not found after authentication"));
+
+        return ResponseEntity.ok(new LoginResponse(
+                token,
+                user.getId(),
+                user.getUsername(),
+                user.getOrganization().getId(),
+                user.getOrganization().getOrganizationName()
+        ));
     }
 
     @PostMapping("/logout")

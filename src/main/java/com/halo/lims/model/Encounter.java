@@ -1,5 +1,7 @@
 package com.halo.lims.model;
 
+import com.halo.lims.constant.EncounterClass;
+import com.halo.lims.constant.EncounterStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -9,6 +11,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
+import java.util.Arrays;
+import java.util.List;
 
 @Entity
 @Table(name = "encounters")
@@ -32,14 +36,17 @@ public class Encounter {
     private OffsetDateTime endTime;
 
     @Column(nullable = false, length = 50)
-    private String status; // FHIR EncounterStatus
+    private String status = EncounterStatus.PLANNED.getCode(); // FHIR EncounterStatus
 
     @Column(name = "encounter_class", length = 100)
-    private String encounterClass; // FHIR EncounterClass
+    private String encounterClass = EncounterClass.AMBULATORY.getCode(); // FHIR EncounterClass
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_provider_id")
     private Organization serviceProvider;
+
+    @Column(name = "ref_doctor", length = 100)
+    private String referenceDoctor;
 
     @Column(name = "local_encounter_system", nullable = false, length = 255)
     private String localEncounterSystem;

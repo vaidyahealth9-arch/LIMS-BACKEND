@@ -11,14 +11,15 @@ import java.util.List;
 
 @Data
 public class ServiceRequestCreateRequest {
-    @NotNull(message = "Patient ID is required")
-    @Min(value = 1, message = "Patient ID must be positive")
+
     private Integer patientId;
 
     @NotNull(message = "Requester ID is required")
     @Min(value = 1, message = "Requester ID must be positive")
     private Integer requesterId;
 
+    @NotNull(message = "Encounter ID is required")
+    @Min(value = 1, message = "Encounter ID must be positive")
     private Integer encounterId;
 
     @NotBlank(message = "Status is required")

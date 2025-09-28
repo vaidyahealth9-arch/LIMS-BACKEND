@@ -1,5 +1,6 @@
 package com.halo.lims.repository;
 
+import com.halo.lims.model.Encounter;
 import com.halo.lims.model.Patient;
 import com.halo.lims.model.ServiceRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,4 +16,6 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, 
     List<ServiceRequest> findByPatient_Id(Integer patientId);
     List<ServiceRequest> findByRequester_Id(Integer requesterId);
     List<ServiceRequest> findByEncounter_Id(Integer encounterId);
+    List<ServiceRequest> findByEncounter(Encounter encounter);
+    List<ServiceRequest> findByEncounterIn(List<Encounter> encounters);
 }

@@ -1,5 +1,7 @@
 package com.halo.lims.model;
 
+import com.halo.lims.constant.RequestPriority;
+import com.halo.lims.constant.ServiceRequestStatus;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -37,10 +39,10 @@ public class ServiceRequest {
     private OffsetDateTime orderDate;
 
     @Column(nullable = false, length = 50)
-    private String status; // FHIR ServiceRequestStatus
+    private String status = ServiceRequestStatus.DRAFT.getCode(); // FHIR ServiceRequestStatus
 
     @Column(length = 20)
-    private String priority; // FHIR RequestPriority
+    private String priority = RequestPriority.ROUTINE.getCode(); // FHIR RequestPriority
 
     @Column(name = "local_order_system", nullable = false, length = 255)
     private String localOrderSystem;

@@ -30,4 +30,7 @@ public class EncounterCreateRequest {
     @NotNull(message = "Service provider ID is required")
     @Min(value = 1, message = "Service provider ID must be positive")
     private Integer serviceProviderId; // The organization that provided the encounter
+
+    @Size(max = 100)
+    private String referenceDoctor;
 }

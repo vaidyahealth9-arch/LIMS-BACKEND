@@ -1,21 +1,28 @@
 package com.halo.lims.service;
 
+import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.encounter.EncounterCreateRequest;
+import com.halo.lims.dto.encounter.EncounterListResponse;
 import com.halo.lims.dto.encounter.EncounterResponse;
 import com.halo.lims.dto.encounter.EncounterUpdateRequest;
-import com.halo.lims.model.Encounter;
-import com.halo.lims.model.Organization;
-import com.halo.lims.model.Patient;
-import com.halo.lims.repository.EncounterRepository;
-import com.halo.lims.repository.OrganizationRepository;
-import com.halo.lims.repository.PatientRepository;
+import com.halo.lims.model.*;
+import com.halo.lims.repository.*;
 import com.halo.lims.security.SecurityService;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import jakarta.persistence.criteria.Root;
+import jakarta.persistence.criteria.Subquery;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
-import java.util.List;
-import java.util.UUID;
+import java.time.LocalDate;
+import java.time.ZoneOffset;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -25,15 +32,21 @@ public class EncounterService {
     private final PatientRepository patientRepository;
     private final OrganizationRepository organizationRepository;
     private final SecurityService securityService;
+    private final ServiceRequestRepository serviceRequestRepository;
+    private final ServiceRequestItemRepository serviceRequestItemRepository;
 
     public EncounterService(EncounterRepository encounterRepository,
                             PatientRepository patientRepository,
                             OrganizationRepository organizationRepository,
-                            SecurityService securityService) {
+                            SecurityService securityService, 
+                            ServiceRequestRepository serviceRequestRepository,
+                            ServiceRequestItemRepository serviceRequestItemRepository) {
         this.encounterRepository = encounterRepository;
         this.patientRepository = patientRepository;
         this.organizationRepository = organizationRepository;
         this.securityService = securityService;
+        this.serviceRequestRepository = serviceRequestRepository;
+        this.serviceRequestItemRepository = serviceRequestItemRepository;
     }
 
     @Transactional
@@ -63,6 +76,7 @@ public class EncounterService {
                 .serviceProvider(serviceProvider)
                 .localEncounterSystem("http://com.lims/encounter-id")
                 .localEncounterValue(generateLocalEncounterId())
+                .referenceDoctor(request.getReferenceDoctor())
                 .build();
 
         Encounter savedEncounter = encounterRepository.save(encounter);
@@ -121,6 +135,88 @@ public class EncounterService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public PagedResponse<EncounterListResponse> searchEncounters(
+            Integer organizationId, LocalDate date, List<Integer> testIds, String query, int page, int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Specification<Encounter> spec = (root, criteriaQuery, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            Join<Encounter, Patient> patientJoin = root.join("patient");
+
+            predicates.add(cb.equal(patientJoin.get("organization").get("id"), organizationId));
+
+            if (date != null) {
+                predicates.add(cb.between(root.get("startTime"), date.atStartOfDay().atOffset(ZoneOffset.UTC), date.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)));
+            }
+
+            if (StringUtils.isNotBlank(query)) {
+                String likePattern = "%" + query.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(patientJoin.get("firstName")), likePattern),
+                        cb.like(cb.lower(patientJoin.get("lastName")), likePattern),
+                        cb.like(cb.lower(patientJoin.get("localMrnValue")), likePattern)
+                ));
+            }
+
+            if (testIds != null && !testIds.isEmpty()) {
+                Subquery<Integer> subquery = criteriaQuery.subquery(Integer.class);
+                Root<ServiceRequestItem> itemRoot = subquery.from(ServiceRequestItem.class);
+                Join<ServiceRequestItem, ServiceRequest> srJoin = itemRoot.join("serviceRequest");
+
+                subquery.select(srJoin.get("encounter").get("id"))
+                        .where(itemRoot.get("test").get("id").in(testIds));
+
+                predicates.add(root.get("id").in(subquery));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Encounter> encounterPage = encounterRepository.findAll(spec, pageable);
+        List<Encounter> encounters = encounterPage.getContent();
+
+        if (encounters.isEmpty()) {
+            return new PagedResponse<>(Collections.emptyList(), page, size, 0, 0);
+        }
+
+        List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounterIn(encounters);
+        List<ServiceRequestItem> serviceRequestItems = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+
+        Map<Integer, List<String>> encounterToTestsMap = new HashMap<>();
+        for (ServiceRequestItem item : serviceRequestItems) {
+            if (item.getServiceRequest() != null && item.getServiceRequest().getEncounter() != null && item.getTest() != null) {
+                encounterToTestsMap
+                        .computeIfAbsent(item.getServiceRequest().getEncounter().getId(), k -> new ArrayList<>())
+                        .add(item.getTest().getTestName());
+            }
+        }
+
+        List<EncounterListResponse> content = encounters.stream().map(encounter -> {
+            List<String> testNames = encounterToTestsMap.getOrDefault(encounter.getId(), Collections.emptyList())
+                    .stream().distinct().collect(Collectors.toList());
+            return new EncounterListResponse(
+                    encounter.getId(),
+                    encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName(),
+                    encounter.getPatient().getLocalMrnValue(),
+                    encounter.getReferenceDoctor(),
+                    encounter.getStartTime(),
+                    encounter.getStatus(),
+                    testNames
+            );
+        }).collect(Collectors.toList());
+
+        PagedResponse<EncounterListResponse> response = new PagedResponse<>();
+        response.setContent(content);
+        response.setPage(encounterPage.getNumber());
+        response.setSize(encounterPage.getSize());
+        response.setTotalElements(encounterPage.getTotalElements());
+        response.setTotalPages(encounterPage.getTotalPages());
+
+        return response;
+    }
+
     private String generateLocalEncounterId() {
         return "ENC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
@@ -136,11 +232,14 @@ public class EncounterService {
         response.setEndTime(encounter.getEndTime());
         response.setStatus(encounter.getStatus());
         response.setEncounterClass(encounter.getEncounterClass());
-        response.setServiceProviderId(encounter.getServiceProvider().getId());
-        response.setServiceProviderName(encounter.getServiceProvider().getOrganizationName());
+        if (encounter.getServiceProvider() != null) {
+            response.setServiceProviderId(encounter.getServiceProvider().getId());
+            response.setServiceProviderName(encounter.getServiceProvider().getOrganizationName());
+        }
         response.setOrganizationId(encounter.getPatient().getOrganization().getId()); // Patient's organization
         response.setCreatedAt(encounter.getCreatedAt());
         response.setUpdatedAt(encounter.getUpdatedAt());
+        response.setReferenceDoctor(encounter.getReferenceDoctor());
         return response;
     }
 }

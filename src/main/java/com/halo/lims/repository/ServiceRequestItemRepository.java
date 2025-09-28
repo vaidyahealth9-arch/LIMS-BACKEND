@@ -21,6 +21,13 @@ public interface ServiceRequestItemRepository extends JpaRepository<ServiceReque
     List<ServiceRequestItem> findByServiceRequest(ServiceRequest serviceRequest);
 
     /**
+     * Finds all ServiceRequestItem links for a list of ServiceRequest entities.
+     * @param serviceRequests The List of ServiceRequest entities.
+     * @return A list of ServiceRequestItem entities.
+     */
+    List<ServiceRequestItem> findByServiceRequestIn(List<ServiceRequest> serviceRequests);
+
+    /**
      * Finds all ServiceRequestItem links for a specific ServiceRequest by its ID.
      * @param serviceRequestId The ID of the ServiceRequest.
      * @return A list of ServiceRequestItem entities.

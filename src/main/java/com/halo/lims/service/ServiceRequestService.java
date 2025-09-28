@@ -12,6 +12,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -47,18 +48,27 @@ public class ServiceRequestService {
 
     @Transactional
     public ServiceRequestResponse createServiceRequest(ServiceRequestCreateRequest request) {
-        Patient patient = patientRepository.findById(request.getPatientId())
-                .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + request.getPatientId()));
+
         Practitioner requester = practitionerRepository.findById(request.getRequesterId())
                 .orElseThrow(() -> new RuntimeException("Requester Practitioner not found with ID: " + request.getRequesterId()));
         Encounter encounter = null;
+        Patient patient = null;
         if (request.getEncounterId() != null) {
             encounter = encounterRepository.findById(request.getEncounterId())
                     .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + request.getEncounterId()));
-            if (!encounter.getPatient().getId().equals(patient.getId())) {
-                throw new IllegalArgumentException("Encounter does not belong to the specified patient.");
-            }
         }
+        if(Objects.nonNull(encounter)){
+            patient = encounter.getPatient();
+        }
+        else if(Objects.nonNull(request.getPatientId())){
+            patient = patientRepository.findById(request.getPatientId())
+                    .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + request.getPatientId()));
+        }
+
+        if(Objects.isNull(patient)){
+            throw new RuntimeException("Patient not found with given encounter / patient ID ");
+        }
+
 
         // --- Multi-tenancy check ---
         Integer organizationId = patient.getOrganization().getId();

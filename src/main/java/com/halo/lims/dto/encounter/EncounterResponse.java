@@ -19,4 +19,5 @@ public class EncounterResponse {
     private Integer organizationId; // Organization of the patient
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
+    private String referenceDoctor;
 }

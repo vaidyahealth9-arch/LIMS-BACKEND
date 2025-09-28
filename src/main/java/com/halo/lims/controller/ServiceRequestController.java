@@ -26,28 +26,28 @@ public class ServiceRequestController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessPatient(#request.patientId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
     public ResponseEntity<ServiceRequestResponse> createServiceRequest(@Valid @RequestBody ServiceRequestCreateRequest request) {
         ServiceRequestResponse response = serviceRequestService.createServiceRequest(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessServiceRequest(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
     public ResponseEntity<ServiceRequestResponse> updateServiceRequest(@PathVariable Integer id, @Valid @RequestBody ServiceRequestUpdateRequest request) {
         ServiceRequestResponse response = serviceRequestService.updateServiceRequest(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN')")
     public ResponseEntity<ServiceRequestResponse> getServiceRequestById(@PathVariable Integer id) {
         ServiceRequestResponse response = serviceRequestService.getServiceRequestById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/by-patient/{patientId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessPatient(#patientId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN')")
     public ResponseEntity<List<ServiceRequestResponse>> getServiceRequestsByPatient(@PathVariable Integer patientId) {
         List<ServiceRequestResponse> responses = serviceRequestService.getServiceRequestsByPatient(patientId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
