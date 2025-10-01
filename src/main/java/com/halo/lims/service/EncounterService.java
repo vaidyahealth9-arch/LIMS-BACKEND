@@ -137,7 +137,7 @@ public class EncounterService {
 
     @Transactional(readOnly = true)
     public PagedResponse<EncounterListResponse> searchEncounters(
-            Integer organizationId, LocalDate date, List<Integer> testIds, String query, int page, int size) {
+            Integer organizationId, LocalDate startDate, LocalDate endDate, List<Integer> testIds, String query, int page, int size) {
 
         Pageable pageable = PageRequest.of(page, size);
 
@@ -147,8 +147,11 @@ public class EncounterService {
 
             predicates.add(cb.equal(patientJoin.get("organization").get("id"), organizationId));
 
-            if (date != null) {
-                predicates.add(cb.between(root.get("startTime"), date.atStartOfDay().atOffset(ZoneOffset.UTC), date.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)));
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("startTime"), startDate.atStartOfDay().atOffset(ZoneOffset.UTC)));
+            }
+            if (endDate != null) {
+                predicates.add(cb.lessThan(root.get("startTime"), endDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)));
             }
 
             if (StringUtils.isNotBlank(query)) {

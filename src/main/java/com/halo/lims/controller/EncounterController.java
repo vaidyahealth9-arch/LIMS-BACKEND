@@ -61,12 +61,13 @@ public class EncounterController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'MANAGER', 'DOCTOR') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<PagedResponse<EncounterListResponse>> searchEncounters(
             @RequestParam("organizationId") Integer organizationId,
-            @RequestParam(value = "date", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(value = "tests", required = false) List<Integer> testIds,
             @RequestParam(value = "query", required = false) String query,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
-        PagedResponse<EncounterListResponse> response = encounterService.searchEncounters(organizationId, date, testIds, query, page, size);
+        PagedResponse<EncounterListResponse> response = encounterService.searchEncounters(organizationId, startDate, endDate, testIds, query, page, size);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
