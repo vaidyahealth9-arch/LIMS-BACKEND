@@ -4,13 +4,14 @@ import com.halo.lims.model.Encounter;
 import com.halo.lims.model.Patient;
 import com.halo.lims.model.ServiceRequest;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.JpaSpecificationExecutor;
 import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, Integer> {
+public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, Integer>, JpaSpecificationExecutor<ServiceRequest> {
     Optional<ServiceRequest> findByLocalOrderValue(String localOrderValue);
     List<ServiceRequest> findByPatient(Patient patient);
     List<ServiceRequest> findByPatient_Id(Integer patientId);

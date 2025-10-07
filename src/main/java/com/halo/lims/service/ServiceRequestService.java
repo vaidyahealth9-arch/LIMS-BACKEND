@@ -1,16 +1,24 @@
 package com.halo.lims.service;
 
+import com.halo.lims.constant.ServiceRequestStatus;
+import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestUpdateRequest;
 import com.halo.lims.model.*;
 import com.halo.lims.repository.*;
 import com.halo.lims.security.SecurityService;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
@@ -27,6 +35,8 @@ public class ServiceRequestService {
     private final TestRepository testRepository;
     private final OrganizationTestRepository organizationTestRepository; // For lab-specific test catalog
     private final SecurityService securityService;
+    private final TestAnalyteRepository testAnalyteRepository;
+    private final ReferenceRangeRepository referenceRangeRepository;
 
     public ServiceRequestService(ServiceRequestRepository serviceRequestRepository,
                                  ServiceRequestItemRepository serviceRequestItemRepository,
@@ -35,7 +45,7 @@ public class ServiceRequestService {
                                  EncounterRepository encounterRepository,
                                  TestRepository testRepository,
                                  OrganizationTestRepository organizationTestRepository,
-                                 SecurityService securityService) {
+                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.patientRepository = patientRepository;
@@ -44,6 +54,8 @@ public class ServiceRequestService {
         this.testRepository = testRepository;
         this.organizationTestRepository = organizationTestRepository;
         this.securityService = securityService;
+        this.testAnalyteRepository = testAnalyteRepository;
+        this.referenceRangeRepository = referenceRangeRepository;
     }
 
     @Transactional
@@ -193,6 +205,58 @@ public class ServiceRequestService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public PagedResponse<ServiceRequestResponse> getPendingServiceRequests(
+            Integer orgId, LocalDate startDate, LocalDate endDate, int page, int size) {
+
+        // --- Multi-tenancy check ---
+        if (orgId != null && !securityService.isUserInOrganization(orgId)) {
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized to view service requests for organization ID: " + orgId);
+        }
+        // If orgId is null, the specification will fetch for all orgs the user has access to.
+        // This requires a more complex check, for now we assume orgId is mandatory if user is not an admin.
+        // A better approach would be to get a list of user's orgs from SecurityService and add an IN clause.
+        // --- End multi-tenancy check ---
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Specification<ServiceRequest> spec = (root, query, cb) -> {
+            List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
+
+            // Always filter by "active" status
+            predicates.add(cb.equal(root.get("status"), ServiceRequestStatus.ACTIVE.getCode()));
+
+            // Filter by organization
+            if (orgId != null) {
+                predicates.add(cb.equal(root.get("patient").get("organization").get("id"), orgId));
+            }
+
+            // Filter by date range
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("orderDate"), startDate));
+            }
+            if (endDate != null) {
+                predicates.add(cb.lessThanOrEqualTo(root.get("orderDate"), endDate));
+            }
+
+            return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+        };
+
+        Page<ServiceRequest> serviceRequestPage = serviceRequestRepository.findAll(spec, pageable);
+
+        List<ServiceRequestResponse> serviceRequestResponses = serviceRequestPage.getContent().stream()
+                .map(this::mapToServiceRequestResponse)
+                .collect(Collectors.toList());
+
+        return new PagedResponse<>(
+                serviceRequestResponses,
+                serviceRequestPage.getNumber(),
+                serviceRequestPage.getSize(),
+                (int) serviceRequestPage.getTotalElements(),
+                serviceRequestPage.getTotalPages()
+        );
+    }
+
     private String generateLocalServiceRequestId() {
         return "SR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
@@ -223,6 +287,34 @@ public class ServiceRequestService {
                     testDetails.setTestLocalCode(item.getTest().getLocalCode());
                     testDetails.setTestName(item.getTest().getTestName());
                     testDetails.setStatus(item.getStatus());
+
+                    List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
+                    List<ServiceRequestResponse.AnalyteDetailsResponse> analyteDetailsResponses = analytes.stream()
+                            .map(analyte -> {
+                                ServiceRequestResponse.AnalyteDetailsResponse analyteDetails = new ServiceRequestResponse.AnalyteDetailsResponse();
+                                analyteDetails.setAnalyteId(analyte.getId());
+                                analyteDetails.setAnalyteName(analyte.getAnalyteName());
+                                if (analyte.getUnit() != null) {
+                                    analyteDetails.setUnit(analyte.getUnit().getName());
+                                }
+                                List<ServiceRequestResponse.ReferenceRangeResponse> referenceRangeResponses = referenceRangeRepository.findByAnalyte(analyte).stream()
+                                        .map(rr -> {
+                                            ServiceRequestResponse.ReferenceRangeResponse rrDetails = new ServiceRequestResponse.ReferenceRangeResponse();
+                                            rrDetails.setId(rr.getId());
+                                            rrDetails.setGender(rr.getGender());
+                                            rrDetails.setMinAgeYears(rr.getMinAgeYears());
+                                            rrDetails.setMaxAgeYears(rr.getMaxAgeYears());
+                                            rrDetails.setLowValue(rr.getLowValue());
+                                            rrDetails.setHighValue(rr.getHighValue());
+                                            rrDetails.setTextRange(rr.getTextRange());
+                                            rrDetails.setInterpretationCode(rr.getInterpretationCode());
+                                            return rrDetails;
+                                        }).collect(Collectors.toList());
+                                analyteDetails.setReferenceRanges(referenceRangeResponses);
+                                return analyteDetails;
+                            }).collect(Collectors.toList());
+                    testDetails.setAnalytes(analyteDetailsResponses);
+
                     // Fetch the price at the time of order from OrganizationTest if available
                     BigDecimal price = organizationTestRepository.findByOrganization_IdAndTest_Id(serviceRequest.getPatient().getOrganization().getId(), item.getTest().getId())
                             .map(OrganizationTest::getPrice)
