@@ -1,7 +1,6 @@
 package com.halo.lims.dto.serviceRequest;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
-import com.halo.lims.model.ReferenceRange;
 import lombok.Data;
 
 import java.math.BigDecimal;

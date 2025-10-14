@@ -1,5 +1,6 @@
 package com.halo.lims.dto.encounter;
 
+import com.halo.lims.constant.EncounterClass;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 import lombok.Data;
@@ -14,7 +15,6 @@ public class EncounterUpdateRequest {
     @Size(max = 50)
     private String status;
 
-    @NotBlank(message = "Encounter class is required")
     @Size(max = 100)
-    private String encounterClass;
+    private String encounterClass = EncounterClass.AMBULATORY.getCode();
 }
