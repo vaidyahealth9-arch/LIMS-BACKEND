@@ -1,16 +1,21 @@
 package com.halo.lims.controller;
 
+import com.halo.lims.dto.PagedResponse;
+import com.halo.lims.dto.billing.BillListResponse;
+import com.halo.lims.dto.billing.BillableDetailsResponse;
 import com.halo.lims.dto.billing.BillCreateRequest;
 import com.halo.lims.dto.billing.BillPaymentRequest;
 import com.halo.lims.dto.billing.BillResponse;
 import com.halo.lims.security.SecurityService;
 import com.halo.lims.service.BillingService;
 import jakarta.validation.Valid;
+import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
 import java.util.List;
 
 @RestController
@@ -32,7 +37,7 @@ public class BillingController {
      * @return Created BillResponse.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST') and @securityService.canAccessEncounter(#request.encounterId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.canAccessEncounter(#request.encounterId)")
     public ResponseEntity<BillResponse> createBill(@Valid @RequestBody BillCreateRequest request) {
         BillResponse response = billingService.createBill(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -46,7 +51,7 @@ public class BillingController {
      * @return Updated BillResponse.
      */
     @PatchMapping("/{id}/payment")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST') and @securityService.canAccessBill(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.canAccessBill(#id)")
     public ResponseEntity<BillResponse> recordPayment(@PathVariable Integer id, @Valid @RequestBody BillPaymentRequest request) {
         BillResponse response = billingService.recordPayment(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -59,7 +64,7 @@ public class BillingController {
      * @return BillResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'DOCTOR') and @securityService.canAccessBill(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessBill(#id)")
     public ResponseEntity<BillResponse> getBillById(@PathVariable Integer id) {
         BillResponse response = billingService.getBillById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -72,7 +77,7 @@ public class BillingController {
      * @return List of BillResponses.
      */
     @GetMapping("/by-encounter/{encounterId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'DOCTOR') and @securityService.canAccessEncounter(#encounterId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessEncounter(#encounterId)")
     public ResponseEntity<List<BillResponse>> getBillsByEncounter(@PathVariable Integer encounterId) {
         List<BillResponse> responses = billingService.getBillsByEncounter(encounterId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
@@ -86,11 +91,30 @@ public class BillingController {
      * @return List of BillResponses.
      */
     @GetMapping("/by-organization/{organizationId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<List<BillResponse>> getBillsByOrganization(
             @PathVariable Integer organizationId,
             @RequestParam(required = false) String status) {
         List<BillResponse> responses = billingService.getBillsByOrganization(organizationId, status);
         return new ResponseEntity<>(responses, HttpStatus.OK);
+    }
+
+    @GetMapping("/encounter/{encounterId}/billable-details")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.canAccessEncounter(#encounterId)")
+    public ResponseEntity<BillableDetailsResponse> getBillableDetailsForEncounter(@PathVariable Integer encounterId) {
+        return ResponseEntity.ok(billingService.getBillableDetailsForEncounter(encounterId));
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
+    public ResponseEntity<PagedResponse<BillListResponse>> searchBills(
+            @RequestParam("organizationId") Integer organizationId,
+            @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,
+            @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
+            @RequestParam(value = "query", required = false) String query,
+            @RequestParam(value = "page", defaultValue = "0") int page,
+            @RequestParam(value = "size", defaultValue = "10") int size) {
+        PagedResponse<BillListResponse> response = billingService.searchBills(organizationId, startDate, endDate, query, page, size);
+        return ResponseEntity.ok(response);
     }
 }

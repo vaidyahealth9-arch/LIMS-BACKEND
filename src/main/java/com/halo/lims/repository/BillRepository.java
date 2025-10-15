@@ -4,6 +4,9 @@ import com.halo.lims.model.Bill;
 import com.halo.lims.model.Encounter;
 import com.halo.lims.model.Organization;
 import com.halo.lims.model.Patient;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
@@ -21,4 +24,6 @@ public interface BillRepository extends JpaRepository<Bill, Integer> {
     List<Bill> findByOrganization_Id(Integer organizationId);
     List<Bill> findByStatus(String status);
     List<Bill> findByOrganization_IdAndStatus(Integer organizationId, String status);
+
+    Page<Bill> findAll(Specification<Bill> spec, Pageable pageable);
 }

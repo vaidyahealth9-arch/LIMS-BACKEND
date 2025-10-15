@@ -1,20 +1,37 @@
 package com.halo.lims.service;
 
+import com.halo.lims.dto.billing.BillListResponse;
+import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.billing.BillCreateRequest;
+import com.halo.lims.dto.billing.BillableDetailsResponse;
+import com.halo.lims.dto.billing.BillableServiceRequest;
+import com.halo.lims.dto.billing.BillableTest;
 import com.halo.lims.dto.billing.BillPaymentRequest;
 import com.halo.lims.dto.billing.BillResponse;
 import com.halo.lims.model.*;
 import com.halo.lims.repository.*;
 import com.halo.lims.security.AesGcmEncryptionUtil;
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.Predicate;
+import org.apache.commons.lang3.StringUtils;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.jpa.domain.Specification;
 import com.halo.lims.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -237,6 +254,127 @@ public class BillingService {
         return bills.stream()
                 .map(this::mapToBillResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public BillableDetailsResponse getBillableDetailsForEncounter(Integer encounterId) {
+        Encounter encounter = encounterRepository.findById(encounterId)
+                .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + encounterId));
+
+        Organization organization = encounter.getPatient().getOrganization();
+
+        // --- Multi-tenancy check ---
+        if (!securityService.isUserInOrganization(organization.getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized for organization ID: " + organization.getId());
+        }
+        // --- End multi-tenancy check ---
+
+        List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounter(encounter);
+
+        List<BillableServiceRequest> billableServiceRequests = new ArrayList<>();
+        for (ServiceRequest sr : serviceRequests) {
+            List<ServiceRequestItem> srItems = serviceRequestItemRepository.findByServiceRequest(sr);
+            List<BillableTest> billableTests = new ArrayList<>();
+            for (ServiceRequestItem item : srItems) {
+                Test test = item.getTest();
+                java.util.Optional<OrganizationTest> orgTestOpt = organizationTestRepository.findByOrganization_IdAndTest_Id(organization.getId(), test.getId());
+
+                BigDecimal price = orgTestOpt.map(OrganizationTest::getPrice).orElse(null); // Or handle as an error
+                billableTests.add(new BillableTest(test.getId(), test.getTestName(), price));
+            }
+            billableServiceRequests.add(new BillableServiceRequest(sr.getId(), billableTests));
+        }
+
+        return new BillableDetailsResponse(encounter.getLocalEncounterValue(), billableServiceRequests);
+    }
+
+    public PagedResponse<BillListResponse> searchBills(
+            Integer organizationId, LocalDate startDate, LocalDate endDate, String query, int page, int size) {
+
+        Pageable pageable = PageRequest.of(page, size);
+
+        Specification<Bill> spec = (root, criteriaQuery, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+            Join<Bill, Patient> patientJoin = root.join("patient");
+
+            predicates.add(cb.equal(root.get("organization").get("id"), organizationId));
+
+            if (startDate != null) {
+                predicates.add(cb.greaterThanOrEqualTo(root.get("invoiceDate"), startDate.atStartOfDay().atOffset(ZoneOffset.UTC)));
+            }
+            if (endDate != null) {
+                predicates.add(cb.lessThan(root.get("invoiceDate"), endDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)));
+            }
+
+            if (org.apache.commons.lang3.StringUtils.isNotBlank(query)) {
+                String likePattern = "%" + query.toLowerCase() + "%";
+                predicates.add(cb.or(
+                        cb.like(cb.lower(patientJoin.get("firstName")), likePattern),
+                        cb.like(cb.lower(patientJoin.get("lastName")), likePattern),
+                        cb.like(cb.lower(patientJoin.get("localMrnValue")), likePattern),
+                        cb.like(cb.lower(root.get("invoiceNumber")), likePattern)
+                ));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Bill> billPage = billRepository.findAll(spec, pageable);
+        List<Bill> bills = billPage.getContent();
+
+        if (bills.isEmpty()) {
+            return new PagedResponse<>(java.util.Collections.emptyList(), page, size, 0, 0);
+        }
+
+        List<Encounter> encounters = bills.stream().map(Bill::getEncounter).distinct().collect(java.util.stream.Collectors.toList());
+        List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounterIn(encounters);
+        List<ServiceRequestItem> serviceRequestItems = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+
+        java.util.Map<Integer, java.util.List<ServiceRequest>> encounterToSrMap = serviceRequests.stream()
+                .collect(java.util.stream.Collectors.groupingBy(sr -> sr.getEncounter().getId()));
+
+        java.util.Map<Integer, java.util.List<String>> srToTestsMap = new java.util.HashMap<>();
+        for (ServiceRequestItem item : serviceRequestItems) {
+            if (item.getServiceRequest() != null && item.getTest() != null) {
+                srToTestsMap
+                        .computeIfAbsent(item.getServiceRequest().getId(), k -> new java.util.ArrayList<>())
+                        .add(item.getTest().getTestName());
+            }
+        }
+
+        java.util.List<BillListResponse> content = bills.stream().map(bill -> {
+            Encounter encounter = bill.getEncounter();
+            Patient patient = bill.getPatient();
+            java.util.List<ServiceRequest> relatedSrs = encounterToSrMap.getOrDefault(encounter.getId(), java.util.Collections.emptyList());
+            java.util.List<Integer> relatedSrIds = relatedSrs.stream().map(ServiceRequest::getId).collect(java.util.stream.Collectors.toList());
+            java.util.List<String> testNames = relatedSrs.stream()
+                    .flatMap(sr -> srToTestsMap.getOrDefault(sr.getId(), java.util.Collections.emptyList()).stream())
+                    .distinct()
+                    .collect(java.util.stream.Collectors.toList());
+
+            return new BillListResponse(
+                    bill.getId(),
+                    bill.getInvoiceNumber(),
+                    bill.getInvoiceDate(),
+                    patient.getFirstName() + " " + patient.getLastName(),
+                    patient.getLocalMrnValue(),
+                    encounter.getLocalEncounterValue(),
+                    bill.getNetAmount(),
+                    bill.getPaidAmount(),
+                    bill.getStatus(),
+                    relatedSrIds,
+                    testNames
+            );
+        }).collect(java.util.stream.Collectors.toList());
+
+        PagedResponse<BillListResponse> response = new PagedResponse<>();
+        response.setContent(content);
+        response.setPage(billPage.getNumber());
+        response.setSize(billPage.getSize());
+        response.setTotalElements(billPage.getTotalElements());
+        response.setTotalPages(billPage.getTotalPages());
+
+        return response;
     }
 
     private String generateInvoiceNumber(String organizationLocalId) {

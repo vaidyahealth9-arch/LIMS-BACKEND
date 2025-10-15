@@ -1,5 +1,6 @@
 package com.halo.lims.service;
 
+import com.halo.lims.constant.EncounterStatus;
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.encounter.EncounterCreateRequest;
 import com.halo.lims.dto.encounter.EncounterListResponse;
@@ -71,7 +72,7 @@ public class EncounterService {
                 .patient(patient)
                 .startTime(request.getStartTime())
                 .endTime(request.getEndTime())
-                .status(request.getStatus())
+                .status(request.getStatus() != null ? EncounterStatus.valueOf(request.getStatus()).getCode() : null)
                 .encounterClass(request.getEncounterClass())
                 .serviceProvider(serviceProvider)
                 .localEncounterSystem("http://com.lims/encounter-id")
@@ -96,7 +97,7 @@ public class EncounterService {
         // --- End multi-tenancy check ---
 
         if (request.getEndTime() != null) encounter.setEndTime(request.getEndTime());
-        if (request.getStatus() != null) encounter.setStatus(request.getStatus());
+        if (request.getStatus() != null) encounter.setStatus(EncounterStatus.valueOf(request.getStatus()).getCode());
         if (request.getEncounterClass() != null) encounter.setEncounterClass(request.getEncounterClass());
 
         Encounter updatedEncounter = encounterRepository.save(encounter);
@@ -199,13 +200,17 @@ public class EncounterService {
         List<EncounterListResponse> content = encounters.stream().map(encounter -> {
             List<String> testNames = encounterToTestsMap.getOrDefault(encounter.getId(), Collections.emptyList())
                     .stream().distinct().collect(Collectors.toList());
+            String status = encounter.getStatus();
+            if (status != null) {
+                status = EncounterStatus.fromCode(status).map(Enum::name).orElse(status);
+            }
             return new EncounterListResponse(
                     encounter.getId(),
                     encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName(),
                     encounter.getPatient().getLocalMrnValue(),
                     encounter.getReferenceDoctor(),
                     encounter.getStartTime(),
-                    encounter.getStatus(),
+                    status,
                     testNames
             );
         }).collect(Collectors.toList());
@@ -233,7 +238,9 @@ public class EncounterService {
         response.setPatientName(encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName());
         response.setStartTime(encounter.getStartTime());
         response.setEndTime(encounter.getEndTime());
-        response.setStatus(encounter.getStatus());
+        if (encounter.getStatus() != null) {
+            response.setStatus(EncounterStatus.fromCode(encounter.getStatus()).map(Enum::name).orElse(encounter.getStatus()));
+        }
         response.setEncounterClass(encounter.getEncounterClass());
         if (encounter.getServiceProvider() != null) {
             response.setServiceProviderId(encounter.getServiceProvider().getId());
