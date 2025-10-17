@@ -1,5 +1,5 @@
-# Use the official Eclipse Temurin base image for Java 21
-FROM eclipse-temurin:21-jdk-jammy AS build
+# Use the official Eclipse Temurin base image for Java 24
+FROM eclipse-temurin:24-jdk-noble AS build
 
 # Set the working directory
 WORKDIR /app
@@ -20,7 +20,7 @@ COPY src src
 RUN ./mvnw package -DskipTests
 
 # Use a smaller JRE image for the final image
-FROM eclipse-temurin:21-jre-jammy
+FROM eclipse-temurin:24-jre-noble
 WORKDIR /app
 
 # Copy the JAR from the build stage
