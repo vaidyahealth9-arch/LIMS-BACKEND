@@ -1,0 +1,6 @@
+.git
+.idea
+target
+*.log
+LIMS-postman_collection.json
+LIMS-postman_collection.txt
