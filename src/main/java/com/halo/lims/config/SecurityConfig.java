@@ -86,7 +86,13 @@ public class SecurityConfig {
             @Override
             public void addCorsMappings(CorsRegistry registry) {
                 registry.addMapping("/**")
-                        .allowedOrigins("https://hale-lims-web-322945089195.asia-south1.run.app")
+                        .allowedOrigins(
+                                "https://hale-lims-web-322945089195.asia-south1.run.app",
+                                "http://localhost:3000",
+                                "http://localhost:4200",
+                                "http://localhost:8081",
+                                "http://localhost:5173"
+                        )
                         .allowedMethods("*")
                         .allowedHeaders("*")
                         .allowCredentials(true);
