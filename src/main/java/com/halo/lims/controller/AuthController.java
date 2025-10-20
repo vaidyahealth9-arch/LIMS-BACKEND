@@ -8,6 +8,8 @@ import com.halo.lims.security.CustomUserDetailsService;
 import com.halo.lims.security.JwtUtil;
 import io.jsonwebtoken.ExpiredJwtException;
 import jakarta.servlet.http.HttpServletRequest;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -21,6 +23,8 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
+    private static final Logger logger = LoggerFactory.getLogger(AuthController.class);
 
     @Autowired
     private AuthenticationManager authenticationManager;
@@ -36,24 +40,32 @@ public class AuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> createAuthenticationToken(@RequestBody LoginRequest authenticationRequest) throws Exception {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(authenticationRequest.getUsername(), authenticationRequest.getPassword())
-        );
+        logger.info("Attempting to authenticate user: {}", authenticationRequest.getUsername());
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(authenticationRequest.getUsername(), authenticationRequest.getPassword())
+            );
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        final String token = jwtUtil.generateToken(userDetails);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            final UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+            final String token = jwtUtil.generateToken(userDetails);
 
-        User user = userRepository.findByUsername(userDetails.getUsername())
-                .orElseThrow(() -> new Exception("User not found after authentication"));
+            User user = userRepository.findByUsername(userDetails.getUsername())
+                    .orElseThrow(() -> new Exception("User not found after authentication"));
 
-        return ResponseEntity.ok(new LoginResponse(
-                token,
-                user.getId(),
-                user.getUsername(),
-                user.getOrganization().getId(),
-                user.getOrganization().getOrganizationName()
-        ));
+            logger.info("User {} authenticated successfully", authenticationRequest.getUsername());
+
+            return ResponseEntity.ok(new LoginResponse(
+                    token,
+                    user.getId(),
+                    user.getUsername(),
+                    user.getOrganization().getId(),
+                    user.getOrganization().getOrganizationName()
+            ));
+        } catch (Exception e) {
+            logger.error("Authentication failed for user {}: {}", authenticationRequest.getUsername(), e.toString());
+            throw e;
+        }
     }
 
     @PostMapping("/refresh")
