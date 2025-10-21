@@ -19,6 +19,7 @@ steps:
       - '--platform'
       - 'managed'
       - '--allow-unauthenticated'
+      - '--add-cloudsql-instances=halelab-469206:asia-south1:hale-stg'
 images:
   - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hale-lims/hale-lims:$COMMIT_SHA'
 options:
