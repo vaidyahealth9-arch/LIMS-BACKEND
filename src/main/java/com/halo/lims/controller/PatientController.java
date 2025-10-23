@@ -6,6 +6,7 @@ import com.halo.lims.dto.patient.PatientRegistrationRequest;
 import com.halo.lims.dto.patient.PatientRegistrationResponse;
 import com.halo.lims.service.PatientService;
 import jakarta.validation.Valid;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -55,6 +56,9 @@ public class PatientController {
             @RequestParam String query,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
+        if(StringUtils.isNotBlank(query)){
+            query = query.trim();
+        }
         PagedResponse<PatientRegistrationResponse> patients = patientService.searchPatientsInOrganization(organizationId, query, page, size);
         return new ResponseEntity<>(patients, HttpStatus.OK);
     }

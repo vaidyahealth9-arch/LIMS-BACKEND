@@ -8,6 +8,7 @@ import com.halo.lims.dto.encounter.EncounterUpdateRequest;
 import com.halo.lims.security.SecurityService;
 import com.halo.lims.service.EncounterService;
 import jakarta.validation.Valid;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -67,6 +68,9 @@ public class EncounterController {
             @RequestParam(value = "query", required = false) String query,
             @RequestParam(value = "page", defaultValue = "0") int page,
             @RequestParam(value = "size", defaultValue = "10") int size) {
+        if(StringUtils.isNotBlank(query)){
+            query = query.trim();
+        }
         PagedResponse<EncounterListResponse> response = encounterService.searchEncounters(organizationId, startDate, endDate, testIds, query, page, size);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

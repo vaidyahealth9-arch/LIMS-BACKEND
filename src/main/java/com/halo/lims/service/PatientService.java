@@ -190,6 +190,7 @@ public class PatientService {
                 .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
 
         Pageable pageable = PageRequest.of(page, size);
+        query = query.trim();
         Page<Patient> patientPage = patientRepository.searchPatients(organization, query, pageable);
 
         List<PatientRegistrationResponse> content = patientPage.getContent().stream()

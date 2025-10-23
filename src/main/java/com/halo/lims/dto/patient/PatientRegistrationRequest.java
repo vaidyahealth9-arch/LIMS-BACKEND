@@ -55,12 +55,11 @@ public class PatientRegistrationRequest {
     private String postalCode;
 
     // For ABHA Integration (Initial creation/linking)
-    @Size(max = 12, message = "Aadhaar number must be 12 digits")
-    @Pattern(regexp = "^[0-9]{12}$", message = "Aadhaar number must be 12 digits")
+    @Pattern(regexp = "^$|^[0-9]{12}$", message = "Aadhaar number must be 12 digits if provided")
     @Nullable
     private String aadhaarNumber; // Only used for ABHA creation, not stored directly
 
-    @Pattern(regexp = "^[0-9]{10}$", message = "ABHA Link Mobile number must be 10 digits")
+    @Pattern(regexp = "^$|^[0-9]{10}$", message = "ABHA Link Mobile number must be 10 digits if provided")
     private String abhaLinkMobileNumber; // Mobile for ABHA creation/linking OTP
 
     private String abhaIdToLink;
