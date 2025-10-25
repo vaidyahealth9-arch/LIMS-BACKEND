@@ -42,6 +42,8 @@ public interface ServiceRequestItemRepository extends JpaRepository<ServiceReque
      */
     Optional<ServiceRequestItem> findByServiceRequest_IdAndTest_Id(Integer serviceRequestId, Integer testId);
 
+    List<ServiceRequestItem> findByServiceRequest_IdAndTest_IdIn(Integer serviceRequestId, java.util.List<Integer> testIds);
+
     /**
      * Finds all ServiceRequestItem links that include a specific Test entity.
      * @param test The Test entity.

@@ -34,6 +34,7 @@ public class ServiceRequestResponse {
         private Integer testId;
         private String testLocalCode;
         private String testName;
+        private String barcode;
         private String status; // Status of this specific item in the request
         private BigDecimal price; // Price at the time of order
         private List<AnalyteDetailsResponse> analytes;

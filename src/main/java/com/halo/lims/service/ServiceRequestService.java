@@ -37,6 +37,7 @@ public class ServiceRequestService {
     private final SecurityService securityService;
     private final TestAnalyteRepository testAnalyteRepository;
     private final ReferenceRangeRepository referenceRangeRepository;
+    private final BarcodeService barcodeService;
 
     public ServiceRequestService(ServiceRequestRepository serviceRequestRepository,
                                  ServiceRequestItemRepository serviceRequestItemRepository,
@@ -45,7 +46,7 @@ public class ServiceRequestService {
                                  EncounterRepository encounterRepository,
                                  TestRepository testRepository,
                                  OrganizationTestRepository organizationTestRepository,
-                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository) {
+                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, BarcodeService barcodeService) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.patientRepository = patientRepository;
@@ -56,6 +57,7 @@ public class ServiceRequestService {
         this.securityService = securityService;
         this.testAnalyteRepository = testAnalyteRepository;
         this.referenceRangeRepository = referenceRangeRepository;
+        this.barcodeService = barcodeService;
     }
 
     @Transactional
@@ -129,6 +131,17 @@ public class ServiceRequestService {
                 .collect(Collectors.toList());
         serviceRequestItemRepository.saveAll(items);
 
+        for (ServiceRequestItem item : items) {
+            try {
+                String barcodeText = String.valueOf(item.getServiceRequest().getId()) + "-" + String.valueOf(item.getTest().getId());
+                String barcodeImage = barcodeService.generateBarcodeImageBase64(barcodeText);
+                item.setBarcode(barcodeImage);
+            } catch (Exception e) {
+                throw new RuntimeException("Error generating barcode", e);
+            }
+        }
+        serviceRequestItemRepository.saveAll(items);
+
         return mapToServiceRequestResponse(savedServiceRequest);
     }
 
@@ -165,9 +178,51 @@ public class ServiceRequestService {
         if (request.getStatus() != null) serviceRequest.setStatus(request.getStatus());
         if (request.getPriority() != null) serviceRequest.setPriority(request.getPriority());
 
-        // TODO: Handle testIds update (adding/removing tests). This requires careful logic
-        // to avoid deleting items that already have specimens/observations.
-        // For simplicity, current implementation only creates items, not removes.
+        if (request.getTestIds() != null && !request.getTestIds().isEmpty()) {
+            List<Integer> existingTestIds = serviceRequestItemRepository.findByServiceRequest(serviceRequest)
+                    .stream()
+                    .map(item -> item.getTest().getId())
+                    .toList();
+
+            List<Integer> newTestIds = request.getTestIds().stream()
+                    .filter(testId -> !existingTestIds.contains(testId))
+                    .toList();
+
+            if (!newTestIds.isEmpty()) {
+                List<ServiceRequestItem> newItems = newTestIds.stream()
+                        .map(testId -> {
+                            Test test = testRepository.findById(testId)
+                                    .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testId));
+
+                            OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testId)
+                                    .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testId + ") is not configured for organization ID: " + organizationId));
+                            if (!orgTest.getIsEnabled()) {
+                                throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testId + ") is disabled for organization ID: " + organizationId);
+                            }
+
+                            return ServiceRequestItem.builder()
+                                    .serviceRequest(serviceRequest)
+                                    .test(test)
+                                    .panel(null)
+                                    .status("requested")
+                                    .build();
+                        })
+                        .collect(Collectors.toList());
+
+                serviceRequestItemRepository.saveAll(newItems);
+
+                for (ServiceRequestItem item : newItems) {
+                    try {
+                        String barcodeText = String.valueOf(item.getServiceRequest().getId()) + "-" + String.valueOf(item.getTest().getId());
+                        String barcodeImage = barcodeService.generateBarcodeImageBase64(barcodeText);
+                        item.setBarcode(barcodeImage);
+                    } catch (Exception e) {
+                        throw new RuntimeException("Error generating barcode", e);
+                    }
+                }
+                serviceRequestItemRepository.saveAll(newItems);
+            }
+        }
 
         ServiceRequest updatedServiceRequest = serviceRequestRepository.save(serviceRequest);
         return mapToServiceRequestResponse(updatedServiceRequest);
@@ -286,6 +341,7 @@ public class ServiceRequestService {
                     testDetails.setTestId(item.getTest().getId());
                     testDetails.setTestLocalCode(item.getTest().getLocalCode());
                     testDetails.setTestName(item.getTest().getTestName());
+                    testDetails.setBarcode(item.getBarcode());
                     testDetails.setStatus(item.getStatus());
 
                     List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
@@ -328,5 +384,11 @@ public class ServiceRequestService {
         response.setCreatedAt(serviceRequest.getCreatedAt());
         response.setUpdatedAt(serviceRequest.getUpdatedAt());
         return response;
+    }
+
+    public java.util.Map<Integer, String> getBarcodesForTests(Integer serviceRequestId, java.util.List<Integer> testIds) {
+        return serviceRequestItemRepository.findByServiceRequest_IdAndTest_IdIn(serviceRequestId, testIds)
+                .stream()
+                .collect(Collectors.toMap(item -> item.getTest().getId(), ServiceRequestItem::getBarcode));
     }
 }

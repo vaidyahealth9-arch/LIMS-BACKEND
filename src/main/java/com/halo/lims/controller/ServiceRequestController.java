@@ -68,5 +68,13 @@ public class ServiceRequestController {
         PagedResponse<ServiceRequestResponse> response = serviceRequestService.getPendingServiceRequests(orgId, startDate, endDate, page, size);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
+
+    @GetMapping(value = "/{id:[0-9]+}/barcodes", produces = org.springframework.http.MediaType.APPLICATION_JSON_VALUE)
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
+    public ResponseEntity<java.util.Map<Integer, String>> getBarcodesForTests(@PathVariable Integer id, @RequestParam java.util.List<Integer> testIds) {
+        java.util.Map<Integer, String> barcodes = serviceRequestService.getBarcodesForTests(id, testIds);
+        return ResponseEntity.ok().body(barcodes);
+    }
+
 //    http://localhost:3000/api/service-requests/search
 }
