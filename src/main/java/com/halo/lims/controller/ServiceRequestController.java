@@ -1,16 +1,23 @@
 package com.halo.lims.controller;
 
 import com.halo.lims.dto.PagedResponse;
+import com.halo.lims.dto.observation.ObservationCreateRequest;
+import com.halo.lims.dto.observation.ObservationResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestCreateRequest;
+import com.halo.lims.dto.serviceRequest.ServiceRequestObservationCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestUpdateRequest;
+import com.halo.lims.security.CustomUserDetailsService;
 import com.halo.lims.security.SecurityService;
+import com.halo.lims.service.ObservationService;
 import com.halo.lims.service.ServiceRequestService;
 import jakarta.validation.Valid;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.LocalDate;
@@ -23,10 +30,14 @@ public class ServiceRequestController {
 
     private final ServiceRequestService serviceRequestService;
     private final SecurityService securityService;
+    private final ObservationService observationService;
+    private final CustomUserDetailsService customUserDetailsService;
 
-    public ServiceRequestController(ServiceRequestService serviceRequestService, SecurityService securityService) {
+    public ServiceRequestController(ServiceRequestService serviceRequestService, SecurityService securityService, ObservationService observationService, CustomUserDetailsService customUserDetailsService) {
         this.serviceRequestService = serviceRequestService;
         this.securityService = securityService;
+        this.observationService = observationService;
+        this.customUserDetailsService = customUserDetailsService;
     }
 
     @PostMapping
@@ -74,6 +85,30 @@ public class ServiceRequestController {
     public ResponseEntity<java.util.Map<Integer, String>> getBarcodesForTests(@PathVariable Integer id, @RequestParam java.util.List<Integer> testIds) {
         java.util.Map<Integer, String> barcodes = serviceRequestService.getBarcodesForTests(id, testIds);
         return ResponseEntity.ok().body(barcodes);
+    }
+
+    @PostMapping("/{id:[0-9]+}/observations")
+    @PreAuthorize("hasRole('TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
+    public ResponseEntity<ObservationResponse> createObservationForServiceRequest(
+            @PathVariable Integer id,
+            @Valid @RequestBody ServiceRequestObservationCreateRequest request,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        Integer performerId = customUserDetailsService.getPractitionerIdFromUserDetails(userDetails);
+
+        ObservationCreateRequest observationCreateRequest = new ObservationCreateRequest();
+        observationCreateRequest.setServiceRequestId(id);
+        observationCreateRequest.setSpecimenId(request.getSpecimenId());
+        observationCreateRequest.setAnalyteId(request.getAnalyteId());
+        observationCreateRequest.setValueNumeric(request.getValueNumeric());
+        observationCreateRequest.setValueString(request.getValueString());
+        observationCreateRequest.setValueCode(request.getValueCode());
+        observationCreateRequest.setValueCodeSystem(request.getValueCodeSystem());
+        observationCreateRequest.setInterpretationCode(request.getInterpretationCode());
+        observationCreateRequest.setInterpretationSystem(request.getInterpretationSystem());
+        observationCreateRequest.setEffectiveDateTime(request.getEffectiveDateTime());
+
+        ObservationResponse response = observationService.createObservation(observationCreateRequest, performerId);
+        return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
 //    http://localhost:3000/api/service-requests/search
