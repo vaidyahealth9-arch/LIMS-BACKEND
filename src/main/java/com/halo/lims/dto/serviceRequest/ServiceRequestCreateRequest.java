@@ -29,6 +29,6 @@ public class ServiceRequestCreateRequest {
     @Size(max = 20)
     private String priority; // FHIR RequestPriority
 
-    @NotNull(message = "At least one Test ID is required")
-    private List<Integer> testIds; // List of global Test IDs being requested
+    @NotNull(message = "At least one Test is required")
+    private List<TestSpecimenRequest> tests; // List of tests and specimen requirements
 }

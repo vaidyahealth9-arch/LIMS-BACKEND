@@ -59,6 +59,10 @@ public class Specimen {
     @Column(name = "local_specimen_value", unique = true, nullable = false, length = 255)
     private String localSpecimenValue;
 
+    @Lob
+    @Column(name = "barcode", columnDefinition = "TEXT")
+    private String barcode;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;

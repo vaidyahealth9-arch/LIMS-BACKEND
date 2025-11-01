@@ -3,6 +3,8 @@ package com.halo.lims.service;
 import com.halo.lims.constant.ServiceRequestStatus;
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestCreateRequest;
+import com.halo.lims.dto.serviceRequest.TestSpecimenRequest;
+import com.halo.lims.dto.specimen.SpecimenCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestUpdateRequest;
 import com.halo.lims.model.*;
@@ -37,7 +39,7 @@ public class ServiceRequestService {
     private final SecurityService securityService;
     private final TestAnalyteRepository testAnalyteRepository;
     private final ReferenceRangeRepository referenceRangeRepository;
-    private final BarcodeService barcodeService;
+    private final SpecimenService specimenService;
 
     public ServiceRequestService(ServiceRequestRepository serviceRequestRepository,
                                  ServiceRequestItemRepository serviceRequestItemRepository,
@@ -46,7 +48,7 @@ public class ServiceRequestService {
                                  EncounterRepository encounterRepository,
                                  TestRepository testRepository,
                                  OrganizationTestRepository organizationTestRepository,
-                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, BarcodeService barcodeService) {
+                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, SpecimenService specimenService) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.patientRepository = patientRepository;
@@ -57,7 +59,7 @@ public class ServiceRequestService {
         this.securityService = securityService;
         this.testAnalyteRepository = testAnalyteRepository;
         this.referenceRangeRepository = referenceRangeRepository;
-        this.barcodeService = barcodeService;
+        this.specimenService = specimenService;
     }
 
     @Transactional
@@ -108,36 +110,37 @@ public class ServiceRequestService {
         ServiceRequest savedServiceRequest = serviceRequestRepository.save(serviceRequest);
 
         // Add ServiceRequestItems (individual tests)
-        List<ServiceRequestItem> items = request.getTestIds().stream()
-                .map(testId -> {
-                    Test test = testRepository.findById(testId)
-                            .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testId));
+        List<ServiceRequestItem> items = new ArrayList<>();
+        if (request.getTests() != null) {
+            for (TestSpecimenRequest testSpecimenRequest : request.getTests()) {
+                Test test = testRepository.findById(testSpecimenRequest.getTestId())
+                        .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testSpecimenRequest.getTestId()));
 
-                    // --- Lab-specific Test Catalog Check (CRITICAL) ---
-                    OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testId)
-                            .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testId + ") is not configured for organization ID: " + organizationId));
-                    if (!orgTest.getIsEnabled()) {
-                        throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testId + ") is disabled for organization ID: " + organizationId);
-                    }
-                    // --- End Lab-specific Test Catalog Check ---
+                // --- Lab-specific Test Catalog Check (CRITICAL) ---
+                OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testSpecimenRequest.getTestId())
+                        .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is not configured for organization ID: " + organizationId));
+                if (!orgTest.getIsEnabled()) {
+                    throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is disabled for organization ID: " + organizationId);
+                }
+                // --- End Lab-specific Test Catalog Check ---
 
-                    return ServiceRequestItem.builder()
-                            .serviceRequest(savedServiceRequest)
-                            .test(test)
-                            .panel(null) // Assuming individual tests, not panels
-                            .status("requested")
-                            .build();
-                })
-                .collect(Collectors.toList());
-        serviceRequestItemRepository.saveAll(items);
+                ServiceRequestItem item = ServiceRequestItem.builder()
+                        .serviceRequest(savedServiceRequest)
+                        .test(test)
+                        .panel(null) // Assuming individual tests, not panels
+                        .status("requested")
+                        .build();
+                items.add(item);
 
-        for (ServiceRequestItem item : items) {
-            try {
-                String barcodeText = String.valueOf(item.getServiceRequest().getId()) + "-" + String.valueOf(item.getTest().getId());
-                String barcodeImage = barcodeService.generateBarcodeImageBase64(barcodeText);
-                item.setBarcode(barcodeImage);
-            } catch (Exception e) {
-                throw new RuntimeException("Error generating barcode", e);
+                // Create specimens for this test
+                for (int i = 0; i < testSpecimenRequest.getNumberOfSpecimens(); i++) {
+                    SpecimenCreateRequest specimenCreateRequest = new SpecimenCreateRequest();
+                    specimenCreateRequest.setServiceRequestId(savedServiceRequest.getId());
+                    specimenCreateRequest.setSpecimenTypeId(testSpecimenRequest.getSpecimenTypeId());
+                    specimenCreateRequest.setCollectionDate(OffsetDateTime.now()); // Defaulting collection date
+                    specimenCreateRequest.setStatus("unavailable"); // Defaulting status
+                    specimenService.createSpecimen(specimenCreateRequest);
+                }
             }
         }
         serviceRequestItemRepository.saveAll(items);
@@ -178,46 +181,44 @@ public class ServiceRequestService {
         if (request.getStatus() != null) serviceRequest.setStatus(request.getStatus());
         if (request.getPriority() != null) serviceRequest.setPriority(request.getPriority());
 
-        if (request.getTestIds() != null && !request.getTestIds().isEmpty()) {
+        if (request.getTests() != null && !request.getTests().isEmpty()) {
             List<Integer> existingTestIds = serviceRequestItemRepository.findByServiceRequest(serviceRequest)
                     .stream()
                     .map(item -> item.getTest().getId())
                     .toList();
 
-            List<Integer> newTestIds = request.getTestIds().stream()
-                    .filter(testId -> !existingTestIds.contains(testId))
+            List<TestSpecimenRequest> newTests = request.getTests().stream()
+                    .filter(testSpecimenRequest -> !existingTestIds.contains(testSpecimenRequest.getTestId()))
                     .toList();
 
-            if (!newTestIds.isEmpty()) {
-                List<ServiceRequestItem> newItems = newTestIds.stream()
-                        .map(testId -> {
-                            Test test = testRepository.findById(testId)
-                                    .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testId));
+            if (!newTests.isEmpty()) {
+                List<ServiceRequestItem> newItems = new ArrayList<>();
+                for (TestSpecimenRequest testSpecimenRequest : newTests) {
+                    Test test = testRepository.findById(testSpecimenRequest.getTestId())
+                            .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testSpecimenRequest.getTestId()));
 
-                            OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testId)
-                                    .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testId + ") is not configured for organization ID: " + organizationId));
-                            if (!orgTest.getIsEnabled()) {
-                                throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testId + ") is disabled for organization ID: " + organizationId);
-                            }
+                    OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testSpecimenRequest.getTestId())
+                            .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is not configured for organization ID: " + organizationId));
+                    if (!orgTest.getIsEnabled()) {
+                        throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is disabled for organization ID: " + organizationId);
+                    }
 
-                            return ServiceRequestItem.builder()
-                                    .serviceRequest(serviceRequest)
-                                    .test(test)
-                                    .panel(null)
-                                    .status("requested")
-                                    .build();
-                        })
-                        .collect(Collectors.toList());
+                    ServiceRequestItem item = ServiceRequestItem.builder()
+                            .serviceRequest(serviceRequest)
+                            .test(test)
+                            .panel(null)
+                            .status("requested")
+                            .build();
+                    newItems.add(item);
 
-                serviceRequestItemRepository.saveAll(newItems);
-
-                for (ServiceRequestItem item : newItems) {
-                    try {
-                        String barcodeText = String.valueOf(item.getServiceRequest().getId()) + "-" + String.valueOf(item.getTest().getId());
-                        String barcodeImage = barcodeService.generateBarcodeImageBase64(barcodeText);
-                        item.setBarcode(barcodeImage);
-                    } catch (Exception e) {
-                        throw new RuntimeException("Error generating barcode", e);
+                    // Create specimens for this test
+                    for (int i = 0; i < testSpecimenRequest.getNumberOfSpecimens(); i++) {
+                        SpecimenCreateRequest specimenCreateRequest = new SpecimenCreateRequest();
+                        specimenCreateRequest.setServiceRequestId(serviceRequest.getId());
+                        specimenCreateRequest.setSpecimenTypeId(testSpecimenRequest.getSpecimenTypeId());
+                        specimenCreateRequest.setCollectionDate(OffsetDateTime.now()); // Defaulting collection date
+                        specimenCreateRequest.setStatus("unavailable"); // Defaulting status
+                        specimenService.createSpecimen(specimenCreateRequest);
                     }
                 }
                 serviceRequestItemRepository.saveAll(newItems);
@@ -341,7 +342,6 @@ public class ServiceRequestService {
                     testDetails.setTestId(item.getTest().getId());
                     testDetails.setTestLocalCode(item.getTest().getLocalCode());
                     testDetails.setTestName(item.getTest().getTestName());
-                    testDetails.setBarcode(item.getBarcode());
                     testDetails.setStatus(item.getStatus());
 
                     List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
@@ -386,9 +386,4 @@ public class ServiceRequestService {
         return response;
     }
 
-    public java.util.Map<Integer, String> getBarcodesForTests(Integer serviceRequestId, java.util.List<Integer> testIds) {
-        return serviceRequestItemRepository.findByServiceRequest_IdAndTest_IdIn(serviceRequestId, testIds)
-                .stream()
-                .collect(Collectors.toMap(item -> item.getTest().getId(), ServiceRequestItem::getBarcode));
-    }
 }

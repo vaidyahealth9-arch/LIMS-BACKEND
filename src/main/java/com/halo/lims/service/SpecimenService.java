@@ -25,19 +25,21 @@ public class SpecimenService {
     private final SpecimenTypeRepository specimenTypeRepository;
     private final UnitRepository unitRepository;
     private final SecurityService securityService;
+    private final BarcodeService barcodeService;
 
     public SpecimenService(SpecimenRepository specimenRepository,
                            ServiceRequestRepository serviceRequestRepository,
                            PatientRepository patientRepository,
                            SpecimenTypeRepository specimenTypeRepository,
                            UnitRepository unitRepository,
-                           SecurityService securityService) {
+                           SecurityService securityService, BarcodeService barcodeService) {
         this.specimenRepository = specimenRepository;
         this.serviceRequestRepository = serviceRequestRepository;
         this.patientRepository = patientRepository;
         this.specimenTypeRepository = specimenTypeRepository;
         this.unitRepository = unitRepository;
         this.securityService = securityService;
+        this.barcodeService = barcodeService;
     }
 
     @Transactional
@@ -59,6 +61,14 @@ public class SpecimenService {
         }
         // --- End multi-tenancy check ---
 
+        String localSpecimenId = generateLocalSpecimenId();
+        String barcodeImage = "";
+        try {
+            barcodeImage = barcodeService.generateBarcodeImageBase64(localSpecimenId);
+        } catch (Exception e) {
+            throw new RuntimeException("Error generating barcode", e);
+        }
+
         Specimen specimen = Specimen.builder()
                 .serviceRequest(serviceRequest)
                 .patient(serviceRequest.getPatient()) // Patient comes from ServiceRequest for consistency
@@ -70,7 +80,8 @@ public class SpecimenService {
                 .quantityValue(request.getQuantityValue())
                 .quantityUnit(quantityUnit)
                 .localSpecimenSystem("http://com.lims/specimen-id")
-                .localSpecimenValue(generateLocalSpecimenId())
+                .localSpecimenValue(localSpecimenId)
+                .barcode(barcodeImage)
                 .build();
 
         Specimen savedSpecimen = specimenRepository.save(specimen);
@@ -159,6 +170,7 @@ public class SpecimenService {
         response.setReceivedDate(specimen.getReceivedDate());
         response.setStatus(specimen.getStatus());
         response.setContainerId(specimen.getContainerId());
+        response.setBarcode(specimen.getBarcode());
         response.setQuantityValue(specimen.getQuantityValue());
         if (specimen.getQuantityUnit() != null) {
             response.setQuantityUnitId(specimen.getQuantityUnit().getId());

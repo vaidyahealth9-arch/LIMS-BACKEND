@@ -18,6 +18,7 @@ public class SpecimenResponse {
     private OffsetDateTime receivedDate;
     private String status;
     private String containerId;
+    private String barcode;
     private BigDecimal quantityValue;
     private Integer quantityUnitId;
     private String quantityUnitName;

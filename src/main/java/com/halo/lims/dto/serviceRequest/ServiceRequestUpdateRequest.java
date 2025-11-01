@@ -19,5 +19,5 @@ public class ServiceRequestUpdateRequest {
     @Size(max = 20)
     private String priority;
 
-    private List<Integer> testIds; // Allows adding/removing tests from the request (careful with existing observations!)
+    private List<TestSpecimenRequest> tests; // Allows adding/removing tests from the request (careful with existing observations!)
 }
