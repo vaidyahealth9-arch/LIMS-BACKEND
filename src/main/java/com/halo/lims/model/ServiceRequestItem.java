@@ -36,9 +36,6 @@ public class ServiceRequestItem {
     @Column(length = 50)
     private String status; // Status of this specific test/panel within the order
 
-    @Column(name = "barcode", columnDefinition = "TEXT")
-    private String barcode;
-
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
