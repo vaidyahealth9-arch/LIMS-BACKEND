@@ -17,6 +17,7 @@ public class TestResponse {
     private String turnAroundTimeText;
     private String reflexProfileText;
     private String reportNotes;
+    private Integer organizationId;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

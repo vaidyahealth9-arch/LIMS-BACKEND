@@ -84,7 +84,7 @@ public class Patient {
     @Column(name = "abdm_last_linked_at")
     private OffsetDateTime abdmLastLinkedAt;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "organization_id", nullable = false)
     private Organization organization;
 

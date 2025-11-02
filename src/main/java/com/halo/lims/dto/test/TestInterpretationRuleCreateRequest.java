@@ -8,7 +8,6 @@ import lombok.Data;
 
 @Data
 public class TestInterpretationRuleCreateRequest {
-    @NotBlank(message = "Rule ID is required")
     @Size(max = 100)
     private String ruleId;
 

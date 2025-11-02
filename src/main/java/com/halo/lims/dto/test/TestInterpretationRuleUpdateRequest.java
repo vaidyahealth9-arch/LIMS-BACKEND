@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 public class TestInterpretationRuleUpdateRequest {
+    private String conditionExpression;
+
     @Size(max = 100)
     private String classification;
 

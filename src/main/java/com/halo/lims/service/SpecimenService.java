@@ -3,10 +3,7 @@ package com.halo.lims.service;
 import com.halo.lims.dto.specimen.SpecimenCreateRequest;
 import com.halo.lims.dto.specimen.SpecimenResponse;
 import com.halo.lims.dto.specimen.SpecimenUpdateRequest;
-import com.halo.lims.model.ServiceRequest;
-import com.halo.lims.model.Specimen;
-import com.halo.lims.model.SpecimenType;
-import com.halo.lims.model.Unit;
+import com.halo.lims.model.*;
 import com.halo.lims.repository.*;
 import com.halo.lims.security.SecurityService;
 import org.springframework.stereotype.Service;
@@ -43,11 +40,20 @@ public class SpecimenService {
     }
 
     @Transactional
-    public SpecimenResponse createSpecimen(SpecimenCreateRequest request) {
+    public SpecimenResponse createSpecimenResponse(SpecimenCreateRequest request) {
+        Specimen specimen = createSpecimen(request);
+        return mapToSpecimenResponse(specimen);
+    }
+
+    @Transactional
+    public Specimen createSpecimen(SpecimenCreateRequest request) {
         ServiceRequest serviceRequest = serviceRequestRepository.findById(request.getServiceRequestId())
                 .orElseThrow(() -> new RuntimeException("Service Request not found with ID: " + request.getServiceRequestId()));
-        SpecimenType specimenType = specimenTypeRepository.findById(request.getSpecimenTypeId())
-                .orElseThrow(() -> new RuntimeException("Specimen Type not found with ID: " + request.getSpecimenTypeId()));
+          SpecimenType specimenType = null;
+        if (request.getSpecimenTypeId() != null) {
+            specimenType = specimenTypeRepository.findById(request.getSpecimenTypeId())
+                    .orElseThrow(() -> new RuntimeException("Specimen Type not found with ID: " + request.getSpecimenTypeId()));
+        }
         Unit quantityUnit = null;
         if (request.getQuantityUnitId() != null) {
             quantityUnit = unitRepository.findById(request.getQuantityUnitId())
@@ -84,8 +90,7 @@ public class SpecimenService {
                 .barcode(barcodeImage)
                 .build();
 
-        Specimen savedSpecimen = specimenRepository.save(specimen);
-        return mapToSpecimenResponse(savedSpecimen);
+        return specimenRepository.save(specimen);
     }
 
     @Transactional
@@ -164,8 +169,10 @@ public class SpecimenService {
         response.setServiceRequestLocalValue(specimen.getServiceRequest().getLocalOrderValue());
         response.setPatientId(specimen.getPatient().getId());
         response.setPatientMrn(specimen.getPatient().getLocalMrnValue());
-        response.setSpecimenTypeId(specimen.getSpecimenType().getId());
-        response.setSpecimenTypeName(specimen.getSpecimenType().getName());
+        if (specimen.getSpecimenType() != null) {
+            response.setSpecimenTypeId(specimen.getSpecimenType().getId());
+            response.setSpecimenTypeName(specimen.getSpecimenType().getName());
+        }
         response.setCollectionDate(specimen.getCollectionDate());
         response.setReceivedDate(specimen.getReceivedDate());
         response.setStatus(specimen.getStatus());

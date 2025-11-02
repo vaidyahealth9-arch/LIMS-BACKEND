@@ -6,6 +6,8 @@ import lombok.Data;
 
 @Data
 public class UnitCreateRequest {
+    private Integer organizationId;
+
     @NotBlank(message = "Unit name is required")
     @Size(max = 50)
     private String name;

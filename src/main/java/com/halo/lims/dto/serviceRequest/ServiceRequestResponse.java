@@ -37,6 +37,7 @@ public class ServiceRequestResponse {
         private String status; // Status of this specific item in the request
         private BigDecimal price; // Price at the time of order
         private List<AnalyteDetailsResponse> analytes;
+        private List<String> specimenBarcodes;
     }
 
     @Data

@@ -9,6 +9,7 @@ public class UnitResponse {
     private String name;
     private String ucumCode;
     private String description;
+    private Integer organizationId;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 }

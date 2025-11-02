@@ -16,8 +16,6 @@ public class SpecimenCreateRequest {
     @Min(value = 1, message = "Service Request ID must be positive")
     private Integer serviceRequestId;
 
-    @NotNull(message = "Specimen Type ID is required")
-    @Min(value = 1, message = "Specimen Type ID must be positive")
     private Integer specimenTypeId;
 
     @NotNull(message = "Collection date is required")

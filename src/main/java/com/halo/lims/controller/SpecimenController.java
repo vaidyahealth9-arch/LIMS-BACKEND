@@ -28,7 +28,7 @@ public class SpecimenController {
     @PostMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#request.serviceRequestId)")
     public ResponseEntity<SpecimenResponse> createSpecimen(@Valid @RequestBody SpecimenCreateRequest request) {
-        SpecimenResponse response = specimenService.createSpecimen(request);
+        SpecimenResponse response = specimenService.createSpecimenResponse(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 

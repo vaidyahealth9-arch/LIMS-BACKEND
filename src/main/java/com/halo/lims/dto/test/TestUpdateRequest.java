@@ -5,6 +5,8 @@ import lombok.Data;
 
 @Data
 public class TestUpdateRequest {
+    private Integer organizationId;
+
     @Size(max = 255)
     private String testName;
 

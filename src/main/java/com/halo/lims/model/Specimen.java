@@ -31,7 +31,7 @@ public class Specimen {
     private Patient patient;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "specimen_type_id", nullable = false)
+    @JoinColumn(name = "specimen_type_id", nullable = true)
     private SpecimenType specimenType;
 
     @Column(name = "collection_date", nullable = false)

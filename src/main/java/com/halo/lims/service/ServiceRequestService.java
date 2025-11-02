@@ -20,10 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -111,6 +108,7 @@ public class ServiceRequestService {
 
         // Add ServiceRequestItems (individual tests)
         List<ServiceRequestItem> items = new ArrayList<>();
+        Map<Integer, List<String>> testSpecimenBarcodes = new HashMap<>();
         if (request.getTests() != null) {
             for (TestSpecimenRequest testSpecimenRequest : request.getTests()) {
                 Test test = testRepository.findById(testSpecimenRequest.getTestId())
@@ -132,6 +130,7 @@ public class ServiceRequestService {
                         .build();
                 items.add(item);
 
+                List<String> barcodes = new ArrayList<>();
                 // Create specimens for this test
                 for (int i = 0; i < testSpecimenRequest.getNumberOfSpecimens(); i++) {
                     SpecimenCreateRequest specimenCreateRequest = new SpecimenCreateRequest();
@@ -139,13 +138,15 @@ public class ServiceRequestService {
                     specimenCreateRequest.setSpecimenTypeId(testSpecimenRequest.getSpecimenTypeId());
                     specimenCreateRequest.setCollectionDate(OffsetDateTime.now()); // Defaulting collection date
                     specimenCreateRequest.setStatus("unavailable"); // Defaulting status
-                    specimenService.createSpecimen(specimenCreateRequest);
+                    Specimen createdSpecimen = specimenService.createSpecimen(specimenCreateRequest);
+                    barcodes.add(createdSpecimen.getBarcode());
                 }
+                testSpecimenBarcodes.put(test.getId(), barcodes);
             }
         }
         serviceRequestItemRepository.saveAll(items);
 
-        return mapToServiceRequestResponse(savedServiceRequest);
+        return mapToServiceRequestResponse(savedServiceRequest, testSpecimenBarcodes);
     }
 
     @Transactional
@@ -226,7 +227,7 @@ public class ServiceRequestService {
         }
 
         ServiceRequest updatedServiceRequest = serviceRequestRepository.save(serviceRequest);
-        return mapToServiceRequestResponse(updatedServiceRequest);
+        return mapToServiceRequestResponse(updatedServiceRequest, java.util.Collections.emptyMap());
     }
 
     @Transactional(readOnly = true)
@@ -241,7 +242,7 @@ public class ServiceRequestService {
         }
         // --- End multi-tenancy check ---
 
-        return mapToServiceRequestResponse(serviceRequest);
+        return mapToServiceRequestResponse(serviceRequest, java.util.Collections.emptyMap());
     }
 
     @Transactional(readOnly = true)
@@ -257,7 +258,7 @@ public class ServiceRequestService {
         // --- End multi-tenancy check ---
 
         return serviceRequestRepository.findByPatient(patient).stream()
-                .map(this::mapToServiceRequestResponse)
+                .map(serviceRequest -> mapToServiceRequestResponse(serviceRequest, java.util.Collections.emptyMap()))
                 .collect(Collectors.toList());
     }
 
@@ -301,7 +302,7 @@ public class ServiceRequestService {
         Page<ServiceRequest> serviceRequestPage = serviceRequestRepository.findAll(spec, pageable);
 
         List<ServiceRequestResponse> serviceRequestResponses = serviceRequestPage.getContent().stream()
-                .map(this::mapToServiceRequestResponse)
+                .map(serviceRequest -> mapToServiceRequestResponse(serviceRequest, java.util.Collections.emptyMap()))
                 .collect(Collectors.toList());
 
         return new PagedResponse<>(
@@ -317,7 +318,7 @@ public class ServiceRequestService {
         return "SR-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
     }
 
-    private ServiceRequestResponse mapToServiceRequestResponse(ServiceRequest serviceRequest) {
+    private ServiceRequestResponse mapToServiceRequestResponse(ServiceRequest serviceRequest, Map<Integer, List<String>> testSpecimenBarcodes) {
         ServiceRequestResponse response = new ServiceRequestResponse();
         response.setId(serviceRequest.getId());
         response.setLocalOrderValue(serviceRequest.getLocalOrderValue());
@@ -343,6 +344,7 @@ public class ServiceRequestService {
                     testDetails.setTestLocalCode(item.getTest().getLocalCode());
                     testDetails.setTestName(item.getTest().getTestName());
                     testDetails.setStatus(item.getStatus());
+                    testDetails.setSpecimenBarcodes(testSpecimenBarcodes.get(item.getTest().getId()));
 
                     List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
                     List<ServiceRequestResponse.AnalyteDetailsResponse> analyteDetailsResponses = analytes.stream()
