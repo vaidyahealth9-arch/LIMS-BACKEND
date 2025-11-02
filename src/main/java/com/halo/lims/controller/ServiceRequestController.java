@@ -104,5 +104,12 @@ public class ServiceRequestController {
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
+    @GetMapping("/{serviceRequestId:[0-9]+}/observations")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    public ResponseEntity<List<ObservationResponse>> getObservationsByServiceRequestId(@PathVariable Integer serviceRequestId) {
+        List<ObservationResponse> responses = observationService.getObservationsByServiceRequestId(serviceRequestId);
+        return new ResponseEntity<>(responses, HttpStatus.OK);
+    }
+
 //    http://localhost:3000/api/service-requests/search
 }
