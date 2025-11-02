@@ -15,7 +15,6 @@ public class ObservationCreateRequest {
     @NotNull(message = "Service Request ID is required")
     private Integer serviceRequestId;
 
-    @NotNull(message = "Specimen ID is required")
     private Integer specimenId;
 
     @NotNull(message = "Analyte ID is required")

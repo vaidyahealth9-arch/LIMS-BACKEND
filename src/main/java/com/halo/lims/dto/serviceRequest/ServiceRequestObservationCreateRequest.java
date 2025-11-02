@@ -12,7 +12,6 @@ import java.time.OffsetDateTime;
 @Data
 public class ServiceRequestObservationCreateRequest {
 
-    @NotNull(message = "Specimen ID is required")
     private Integer specimenId;
 
     @NotNull(message = "Analyte ID is required")

@@ -6,6 +6,7 @@ import com.halo.lims.dto.observation.ObservationUpdateRequest;
 import com.halo.lims.model.*;
 import com.halo.lims.repository.*;
 import com.halo.lims.security.SecurityService;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -13,6 +14,7 @@ import java.math.BigDecimal;
 import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -57,8 +59,11 @@ public class ObservationService {
     public ObservationResponse createObservation(ObservationCreateRequest request, Integer performerId) {
         ServiceRequest serviceRequest = serviceRequestRepository.findById(request.getServiceRequestId())
                 .orElseThrow(() -> new RuntimeException("Service Request not found with ID: " + request.getServiceRequestId()));
-        Specimen specimen = specimenRepository.findById(request.getSpecimenId())
-                .orElseThrow(() -> new RuntimeException("Specimen not found with ID: " + request.getSpecimenId()));
+        Specimen specimen = null;
+        if(Objects.nonNull(request.getSpecimenId())){
+            specimen = specimenRepository.findById(request.getSpecimenId())
+                    .orElseThrow(() -> new RuntimeException("Specimen not found with ID: " + request.getSpecimenId()));
+        }
         TestAnalyte analyte = testAnalyteRepository.findById(request.getAnalyteId())
                 .orElseThrow(() -> new RuntimeException("Analyte not found with ID: " + request.getAnalyteId()));
         Practitioner performer = practitionerRepository.findById(performerId)
@@ -67,11 +72,11 @@ public class ObservationService {
         // --- Multi-tenancy check (internal) ---
         Integer organizationId = serviceRequest.getPatient().getOrganization().getId();
         if (!securityService.isUserInOrganization(organizationId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to create observations for organization ID: " + organizationId);
+            throw new AccessDeniedException("User not authorized to create observations for organization ID: " + organizationId);
         }
         // --- End multi-tenancy check ---
 
-        if (!serviceRequest.getPatient().getId().equals(specimen.getPatient().getId())) {
+        if (Objects.nonNull(specimen) && !serviceRequest.getPatient().getId().equals(specimen.getPatient().getId())) {
             throw new IllegalArgumentException("Patient mismatch between Service Request and Specimen.");
         }
 
@@ -135,7 +140,7 @@ public class ObservationService {
         // --- Multi-tenancy check (internal) ---
         Integer organizationId = observation.getPatient().getOrganization().getId();
         if (!securityService.isUserInOrganization(organizationId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to update observations for organization ID: " + organizationId);
+            throw new AccessDeniedException("User not authorized to update observations for organization ID: " + organizationId);
         }
         // --- End multi-tenancy check ---
 
@@ -194,7 +199,7 @@ public class ObservationService {
         // Ensure all observations belong to the same organization and user has access
         Integer organizationId = observations.get(0).getPatient().getOrganization().getId(); // Assuming all belong to same org
         if (!securityService.isUserInOrganization(organizationId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to verify observations for organization ID: " + organizationId);
+            throw new AccessDeniedException("User not authorized to verify observations for organization ID: " + organizationId);
         }
         // You might want to loop and check each observation's organization for robust check
         for (Observation obs : observations) {
@@ -238,7 +243,7 @@ public class ObservationService {
         // --- Multi-tenancy check for ALL observations in the batch ---
         Integer organizationId = observations.get(0).getPatient().getOrganization().getId(); // Assuming all belong to same org
         if (!securityService.isUserInOrganization(organizationId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to approve observations for organization ID: " + organizationId);
+            throw new AccessDeniedException("User not authorized to approve observations for organization ID: " + organizationId);
         }
         for (Observation obs : observations) {
             if (!obs.getPatient().getOrganization().getId().equals(organizationId)) {
@@ -387,7 +392,7 @@ public class ObservationService {
         // --- Multi-tenancy check (internal) ---
         Integer organizationId = serviceRequest.getPatient().getOrganization().getId();
         if (!securityService.isUserInOrganization(organizationId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to view observations for organization ID: " + organizationId);
+            throw new AccessDeniedException("User not authorized to view observations for organization ID: " + organizationId);
         }
         // --- End multi-tenancy check ---
         return observationRepository.findByServiceRequestId(serviceRequestId)
@@ -404,7 +409,7 @@ public class ObservationService {
         // --- Multi-tenancy check (internal) ---
         Integer organizationId = observation.getPatient().getOrganization().getId();
         if (!securityService.isUserInOrganization(organizationId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to view observation for organization ID: " + organizationId);
+            throw new AccessDeniedException("User not authorized to view observation for organization ID: " + organizationId);
         }
         // --- End multi-tenancy check ---
         return mapToObservationResponse(observation);
