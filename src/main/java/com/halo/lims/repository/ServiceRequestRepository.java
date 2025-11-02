@@ -19,4 +19,8 @@ public interface ServiceRequestRepository extends JpaRepository<ServiceRequest, 
     List<ServiceRequest> findByEncounter_Id(Integer encounterId);
     List<ServiceRequest> findByEncounter(Encounter encounter);
     List<ServiceRequest> findByEncounterIn(List<Encounter> encounters);
+
+    long countByPatient_OrganizationIdAndStatus(Integer organizationId, String status);
+
+    List<ServiceRequest> findByPatient_OrganizationIdAndStatus(Integer organizationId, String status);
 }

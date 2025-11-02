@@ -9,4 +9,6 @@ import java.util.Optional;
 @Repository
 public interface ObservationRepository extends JpaRepository<Observation, Integer> {
     Optional<Observation> findByServiceRequestId(Integer serviceRequestId);
+
+    Optional<Observation> findTopByServiceRequestIdOrderByEffectiveDateTimeDesc(Integer serviceRequestId);
 }
