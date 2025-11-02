@@ -20,6 +20,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
+import java.time.ZoneOffset;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -290,10 +291,10 @@ public class ServiceRequestService {
 
             // Filter by date range
             if (startDate != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("orderDate"), startDate));
+                predicates.add(cb.greaterThanOrEqualTo(root.get("orderDate"), startDate.atStartOfDay(ZoneOffset.UTC).toOffsetDateTime()));
             }
             if (endDate != null) {
-                predicates.add(cb.lessThanOrEqualTo(root.get("orderDate"), endDate));
+                predicates.add(cb.lessThan(root.get("orderDate"), endDate.plusDays(1).atStartOfDay(ZoneOffset.UTC).toOffsetDateTime()));
             }
 
             return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
