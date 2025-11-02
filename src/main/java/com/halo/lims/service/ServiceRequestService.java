@@ -98,7 +98,7 @@ public class ServiceRequestService {
                 .requester(requester)
                 .encounter(encounter)
                 .orderDate(OffsetDateTime.now())
-                .status(request.getStatus())
+                .status(request.getStatus().toLowerCase())
                 .priority(request.getPriority())
                 .localOrderSystem("http://com.lims/service-request-id")
                 .localOrderValue(generateLocalServiceRequestId())
