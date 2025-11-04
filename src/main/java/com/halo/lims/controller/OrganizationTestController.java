@@ -29,7 +29,7 @@ public class OrganizationTestController {
      * @return The created/updated OrganizationTestResponse.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<OrganizationTestResponse> addOrUpdateOrganizationTest(
             @PathVariable Integer organizationId,
             @Valid @RequestBody OrganizationTestRequest request) {
