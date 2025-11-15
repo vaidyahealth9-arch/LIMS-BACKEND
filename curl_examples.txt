@@ -1,15 +1,47 @@
-# Create a new OrganizationTestInterpretationRule
-curl -X POST http://localhost:8080/api/organization-test-interpretation-rules \
+# Get a list of InterpretationRules by organization and test
+curl -X GET http://localhost:8080/api/interpretation-rules?organizationId=1&testId=1
+
+# Sample Response (GET)
+# [
+#   {
+#     "id": 1,
+#     "organizationId": 1,
+#     "analyteId": 1,
+#     "analyteName": "Analyte A",
+#     "conditionExpression": "result > 100",
+#     "classification": "High",
+#     "autoComment": "Result is high",
+#     "reflexActionText": "Repeat test",
+#     "priority": "High",
+#     "createdAt": "2025-11-15T06:57:20.604483Z",
+#     "updatedAt": "2025-11-15T06:57:20.604483Z",
+#     "ruleSource": "Organization"
+#   },
+#   {
+#     "id": 2,
+#     "analyteId": 2,
+#     "analyteName": "Analyte B",
+#     "conditionExpression": "result < 10",
+#     "classification": "Low",
+#     "autoComment": "Result is low",
+#     "reflexActionText": "Check sample",
+#     "priority": "High",
+#     "createdAt": "2025-11-15T06:57:20.604483Z",
+#     "updatedAt": "2025-11-15T06:57:20.604483Z",
+#     "ruleSource": "Global"
+#   },
+#   {
+#     "analyteId": 3,
+#     "analyteName": "Analyte C"
+#   }
+# ]
+
+# Create a new OrganizationAnalyteInterpretationRule
+curl -X POST http://localhost:8080/api/interpretation-rules \
 -H "Content-Type: application/json" \
 -d '{
-  "organizationTestId": {
-    "organization": {
-      "id": 1
-    },
-    "test": {
-      "id": 1
-    }
-  },
+  "organizationId": 1,
+  "analyteId": 1,
   "conditionExpression": "result > 100",
   "classification": "High",
   "autoComment": "Result is high",
@@ -17,11 +49,8 @@ curl -X POST http://localhost:8080/api/organization-test-interpretation-rules \
   "priority": "High"
 }'
 
-# Get a list of OrganizationTestInterpretationRules by organization and test
-curl -X GET http://localhost:8080/api/organization-test-interpretation-rules?organizationId=1&testId=1
-
-# Update an existing OrganizationTestInterpretationRule
-curl -X PUT http://localhost:8080/api/organization-test-interpretation-rules/1 \
+# Update an existing OrganizationAnalyteInterpretationRule
+curl -X PUT http://localhost:8080/api/interpretation-rules/1 \
 -H "Content-Type: application/json" \
 -d '{
   "classification": "Very High",
@@ -29,3 +58,6 @@ curl -X PUT http://localhost:8080/api/organization-test-interpretation-rules/1 \
   "reflexActionText": "Call doctor",
   "priority": "Critical"
 }'
+
+# Delete an existing OrganizationAnalyteInterpretationRule
+curl -X DELETE http://localhost:8080/api/interpretation-rules/1

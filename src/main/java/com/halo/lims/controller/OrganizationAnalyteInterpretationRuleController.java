@@ -1,12 +1,12 @@
 package com.halo.lims.controller;
 
 import com.halo.lims.dto.test.InterpretationRuleResponse;
-import com.halo.lims.service.OrganizationAnalyteInterpretationRuleService;
-import org.springframework.http.HttpStatus;
-import org.springframework.http.ResponseEntity;
 import com.halo.lims.dto.test.OrganizationAnalyteInterpretationRuleCreateRequest;
 import com.halo.lims.dto.test.OrganizationAnalyteInterpretationRuleResponse;
 import com.halo.lims.dto.test.OrganizationAnalyteInterpretationRuleUpdateRequest;
+import com.halo.lims.service.OrganizationAnalyteInterpretationRuleService;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
