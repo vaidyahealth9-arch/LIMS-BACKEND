@@ -46,20 +46,7 @@ public class ServiceRequestResponse {
         private Integer analyteId;
         private String analyteName;
         private String unit;
-        private List<ReferenceRangeResponse> referenceRanges;
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class ReferenceRangeResponse {
-        private Integer id;
-        private String gender;
-        private Integer minAgeYears;
-        private Integer maxAgeYears;
-        private BigDecimal lowValue;
-        private BigDecimal highValue;
-        private String textRange;
-        private String interpretationCode;
+        private List<com.halo.lims.dto.test.InterpretationRuleResponse> interpretationRules;
     }
 
 }

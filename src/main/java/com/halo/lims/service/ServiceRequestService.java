@@ -38,6 +38,7 @@ public class ServiceRequestService {
     private final TestAnalyteRepository testAnalyteRepository;
     private final ReferenceRangeRepository referenceRangeRepository;
     private final SpecimenService specimenService;
+    private final OrganizationAnalyteInterpretationRuleService organizationAnalyteInterpretationRuleService;
 
     public ServiceRequestService(ServiceRequestRepository serviceRequestRepository,
                                  ServiceRequestItemRepository serviceRequestItemRepository,
@@ -46,7 +47,8 @@ public class ServiceRequestService {
                                  EncounterRepository encounterRepository,
                                  TestRepository testRepository,
                                  OrganizationTestRepository organizationTestRepository,
-                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, SpecimenService specimenService) {
+                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, SpecimenService specimenService,
+                                 OrganizationAnalyteInterpretationRuleService organizationAnalyteInterpretationRuleService) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.patientRepository = patientRepository;
@@ -58,6 +60,7 @@ public class ServiceRequestService {
         this.testAnalyteRepository = testAnalyteRepository;
         this.referenceRangeRepository = referenceRangeRepository;
         this.specimenService = specimenService;
+        this.organizationAnalyteInterpretationRuleService = organizationAnalyteInterpretationRuleService;
     }
 
     @Transactional
@@ -356,20 +359,7 @@ public class ServiceRequestService {
                                 if (analyte.getUnit() != null) {
                                     analyteDetails.setUnit(analyte.getUnit().getName());
                                 }
-                                List<ServiceRequestResponse.ReferenceRangeResponse> referenceRangeResponses = referenceRangeRepository.findByAnalyte(analyte).stream()
-                                        .map(rr -> {
-                                            ServiceRequestResponse.ReferenceRangeResponse rrDetails = new ServiceRequestResponse.ReferenceRangeResponse();
-                                            rrDetails.setId(rr.getId());
-                                            rrDetails.setGender(rr.getGender());
-                                            rrDetails.setMinAgeYears(rr.getMinAgeYears());
-                                            rrDetails.setMaxAgeYears(rr.getMaxAgeYears());
-                                            rrDetails.setLowValue(rr.getLowValue());
-                                            rrDetails.setHighValue(rr.getHighValue());
-                                            rrDetails.setTextRange(rr.getTextRange());
-                                            rrDetails.setInterpretationCode(rr.getInterpretationCode());
-                                            return rrDetails;
-                                        }).collect(Collectors.toList());
-                                analyteDetails.setReferenceRanges(referenceRangeResponses);
+                                analyteDetails.setInterpretationRules(organizationAnalyteInterpretationRuleService.getInterpretationRules(serviceRequest.getPatient().getOrganization().getId(), item.getTest().getId()));
                                 return analyteDetails;
                             }).collect(Collectors.toList());
                     testDetails.setAnalytes(analyteDetailsResponses);
