@@ -36,30 +36,7 @@ public class ServiceRequestResponse {
         private String testName;
         private String status; // Status of this specific item in the request
         private BigDecimal price; // Price at the time of order
-        private List<AnalyteDetailsResponse> analytes;
         private List<String> specimenBarcodes;
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class AnalyteDetailsResponse {
-        private Integer analyteId;
-        private String analyteName;
-        private String unit;
-        private List<ReferenceRangeResponse> referenceRanges;
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class ReferenceRangeResponse {
-        private Integer id;
-        private String gender;
-        private Integer minAgeYears;
-        private Integer maxAgeYears;
-        private BigDecimal lowValue;
-        private BigDecimal highValue;
-        private String textRange;
-        private String interpretationCode;
     }
 
 }

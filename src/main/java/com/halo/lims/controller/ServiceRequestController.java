@@ -17,6 +17,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import com.halo.lims.dto.serviceRequest.AnalyteDetailResponse;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
@@ -109,6 +110,13 @@ public class ServiceRequestController {
     public ResponseEntity<List<ObservationResponse>> getObservationsByServiceRequestId(@PathVariable Integer serviceRequestId) {
         List<ObservationResponse> responses = observationService.getObservationsByServiceRequestId(serviceRequestId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
+    }
+
+    @GetMapping("/{id:[0-9]+}/analytes")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
+    public ResponseEntity<List<AnalyteDetailResponse>> getServiceRequestAnalytes(@PathVariable Integer id) {
+        List<AnalyteDetailResponse> response = serviceRequestService.getServiceRequestAnalytes(id);
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
 //    http://localhost:3000/api/service-requests/search
