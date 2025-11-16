@@ -24,15 +24,18 @@ public class OrganizationAnalyteInterpretationRuleService {
     private final OrganizationRepository organizationRepository;
     private final TestAnalyteRepository testAnalyteRepository;
     private final TestInterpretationRuleRepository testInterpretationRuleRepository;
+    private final com.halo.lims.mapper.InterpretationRuleMapper interpretationRuleMapper;
 
     public OrganizationAnalyteInterpretationRuleService(OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository,
                                                       OrganizationRepository organizationRepository,
                                                       TestAnalyteRepository testAnalyteRepository,
-                                                      TestInterpretationRuleRepository testInterpretationRuleRepository) {
+                                                      TestInterpretationRuleRepository testInterpretationRuleRepository,
+                                                      com.halo.lims.mapper.InterpretationRuleMapper interpretationRuleMapper) {
         this.organizationAnalyteInterpretationRuleRepository = organizationAnalyteInterpretationRuleRepository;
         this.organizationRepository = organizationRepository;
         this.testAnalyteRepository = testAnalyteRepository;
         this.testInterpretationRuleRepository = testInterpretationRuleRepository;
+        this.interpretationRuleMapper = interpretationRuleMapper;
     }
 
     @Transactional
@@ -116,57 +119,15 @@ public class OrganizationAnalyteInterpretationRuleService {
         return analytes.stream().map(analyte -> {
             List<OrganizationAnalyteInterpretationRule> orgRules = organizationAnalyteInterpretationRuleRepository.findByOrganizationAndAnalyte(organization, analyte);
             if (!orgRules.isEmpty()) {
-                return orgRules.stream().map(rule -> mapToInterpretationRuleResponse(rule)).collect(Collectors.toList());
+                return orgRules.stream().map(interpretationRuleMapper::mapToInterpretationRuleResponse).collect(Collectors.toList());
             }
 
             List<com.halo.lims.model.TestInterpretationRule> globalRules = testInterpretationRuleRepository.findByAnalyte(analyte);
             if (!globalRules.isEmpty()) {
-                return globalRules.stream().map(rule -> mapToInterpretationRuleResponse(rule)).collect(Collectors.toList());
+                return globalRules.stream().map(interpretationRuleMapper::mapToInterpretationRuleResponse).collect(Collectors.toList());
             }
 
-            return List.of(mapToInterpretationRuleResponse(analyte));
+            return List.of(interpretationRuleMapper.mapToInterpretationRuleResponse(analyte));
         }).flatMap(List::stream).collect(Collectors.toList());
-    }
-
-    private InterpretationRuleResponse mapToInterpretationRuleResponse(Object rule) {
-        if (rule instanceof OrganizationAnalyteInterpretationRule) {
-            OrganizationAnalyteInterpretationRule orgRule = (OrganizationAnalyteInterpretationRule) rule;
-            return InterpretationRuleResponse.builder()
-                    .id(orgRule.getId())
-                    .organizationId(orgRule.getOrganization().getId())
-                    .analyteId(orgRule.getAnalyte().getId())
-                    .analyteName(orgRule.getAnalyte().getAnalyteName())
-                    .conditionExpression(orgRule.getConditionExpression())
-                    .classification(orgRule.getClassification())
-                    .autoComment(orgRule.getAutoComment())
-                    .reflexActionText(orgRule.getReflexActionText())
-                    .priority(orgRule.getPriority())
-                    .createdAt(orgRule.getCreatedAt())
-                    .updatedAt(orgRule.getUpdatedAt())
-                    .ruleSource("Organization")
-                    .build();
-        } else if (rule instanceof com.halo.lims.model.TestInterpretationRule) {
-            com.halo.lims.model.TestInterpretationRule globalRule = (com.halo.lims.model.TestInterpretationRule) rule;
-            return InterpretationRuleResponse.builder()
-                    .id(globalRule.getId())
-                    .analyteId(globalRule.getAnalyte().getId())
-                    .analyteName(globalRule.getAnalyte().getAnalyteName())
-                    .conditionExpression(globalRule.getConditionExpression())
-                    .classification(globalRule.getClassification())
-                    .autoComment(globalRule.getAutoComment())
-                    .reflexActionText(globalRule.getReflexActionText())
-                    .priority(globalRule.getPriority())
-                    .createdAt(globalRule.getCreatedAt())
-                    .updatedAt(globalRule.getUpdatedAt())
-                    .ruleSource("Global")
-                    .build();
-        } else if (rule instanceof TestAnalyte) {
-            TestAnalyte analyte = (TestAnalyte) rule;
-            return InterpretationRuleResponse.builder()
-                    .analyteId(analyte.getId())
-                    .analyteName(analyte.getAnalyteName())
-                    .build();
-        }
-        return null;
     }
 }

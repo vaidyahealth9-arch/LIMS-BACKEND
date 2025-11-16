@@ -8,6 +8,7 @@ import com.halo.lims.dto.specimen.SpecimenCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestUpdateRequest;
 import com.halo.lims.model.*;
+import com.halo.lims.dto.serviceRequest.AnalyteDetailResponse;
 import com.halo.lims.repository.*;
 import com.halo.lims.security.SecurityService;
 import org.springframework.data.domain.Page;
@@ -350,20 +351,6 @@ public class ServiceRequestService {
                     testDetails.setStatus(item.getStatus());
                     testDetails.setSpecimenBarcodes(testSpecimenBarcodes.get(item.getTest().getId()));
 
-                    List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
-                    List<ServiceRequestResponse.AnalyteDetailsResponse> analyteDetailsResponses = analytes.stream()
-                            .map(analyte -> {
-                                ServiceRequestResponse.AnalyteDetailsResponse analyteDetails = new ServiceRequestResponse.AnalyteDetailsResponse();
-                                analyteDetails.setAnalyteId(analyte.getId());
-                                analyteDetails.setAnalyteName(analyte.getAnalyteName());
-                                if (analyte.getUnit() != null) {
-                                    analyteDetails.setUnit(analyte.getUnit().getName());
-                                }
-                                analyteDetails.setInterpretationRules(organizationAnalyteInterpretationRuleService.getInterpretationRules(serviceRequest.getPatient().getOrganization().getId(), item.getTest().getId()));
-                                return analyteDetails;
-                            }).collect(Collectors.toList());
-                    testDetails.setAnalytes(analyteDetailsResponses);
-
                     // Fetch the price at the time of order from OrganizationTest if available
                     BigDecimal price = organizationTestRepository.findByOrganization_IdAndTest_Id(serviceRequest.getPatient().getOrganization().getId(), item.getTest().getId())
                             .map(OrganizationTest::getPrice)
@@ -379,4 +366,33 @@ public class ServiceRequestService {
         return response;
     }
 
+    @Transactional(readOnly = true)
+    public List<AnalyteDetailResponse> getServiceRequestAnalytes(Integer serviceRequestId) {
+        ServiceRequest serviceRequest = serviceRequestRepository.findById(serviceRequestId)
+                .orElseThrow(() -> new RuntimeException("Service Request not found with ID: " + serviceRequestId));
+
+        // --- Multi-tenancy check ---
+        Integer organizationId = serviceRequest.getPatient().getOrganization().getId();
+        if (!securityService.isUserInOrganization(organizationId)) {
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized to view service requests for patients in organization ID: " + organizationId);
+        }
+        // --- End multi-tenancy check ---
+
+        List<ServiceRequestItem> items = serviceRequestItemRepository.findByServiceRequest(serviceRequest);
+        return items.stream()
+                .flatMap(item -> {
+                    List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
+                    return analytes.stream().map(analyte -> {
+                        AnalyteDetailResponse analyteDetails = new AnalyteDetailResponse();
+                        analyteDetails.setAnalyteId(analyte.getId());
+                        analyteDetails.setAnalyteName(analyte.getAnalyteName());
+                        if (analyte.getUnit() != null) {
+                            analyteDetails.setUnit(analyte.getUnit().getName());
+                        }
+                        analyteDetails.setInterpretationRules(organizationAnalyteInterpretationRuleService.getInterpretationRules(organizationId, item.getTest().getId()));
+                        return analyteDetails;
+                    });
+                })
+                .collect(Collectors.toList());
+    }
 }

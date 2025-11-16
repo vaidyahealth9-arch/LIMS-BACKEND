@@ -36,17 +36,7 @@ public class ServiceRequestResponse {
         private String testName;
         private String status; // Status of this specific item in the request
         private BigDecimal price; // Price at the time of order
-        private List<AnalyteDetailsResponse> analytes;
         private List<String> specimenBarcodes;
-    }
-
-    @Data
-    @JsonInclude(JsonInclude.Include.NON_NULL)
-    public static class AnalyteDetailsResponse {
-        private Integer analyteId;
-        private String analyteName;
-        private String unit;
-        private List<com.halo.lims.dto.test.InterpretationRuleResponse> interpretationRules;
     }
 
 }
