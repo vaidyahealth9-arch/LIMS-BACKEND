@@ -3,6 +3,7 @@ package com.halo.lims.service;
 import com.halo.lims.constant.ServiceRequestStatus;
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestCreateRequest;
+import com.halo.lims.dto.serviceRequest.TestAnalytesResponse;
 import com.halo.lims.dto.serviceRequest.TestSpecimenRequest;
 import com.halo.lims.dto.specimen.SpecimenCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
@@ -367,7 +368,7 @@ public class ServiceRequestService {
     }
 
     @Transactional(readOnly = true)
-    public List<AnalyteDetailResponse> getServiceRequestAnalytes(Integer serviceRequestId) {
+    public List<TestAnalytesResponse> getServiceRequestAnalytes(Integer serviceRequestId) {
         ServiceRequest serviceRequest = serviceRequestRepository.findById(serviceRequestId)
                 .orElseThrow(() -> new RuntimeException("Service Request not found with ID: " + serviceRequestId));
 
@@ -379,19 +380,30 @@ public class ServiceRequestService {
         // --- End multi-tenancy check ---
 
         List<ServiceRequestItem> items = serviceRequestItemRepository.findByServiceRequest(serviceRequest);
+
         return items.stream()
-                .flatMap(item -> {
-                    List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(item.getTest().getId());
-                    return analytes.stream().map(analyte -> {
-                        AnalyteDetailResponse analyteDetails = new AnalyteDetailResponse();
-                        analyteDetails.setAnalyteId(analyte.getId());
-                        analyteDetails.setAnalyteName(analyte.getAnalyteName());
-                        if (analyte.getUnit() != null) {
-                            analyteDetails.setUnit(analyte.getUnit().getName());
-                        }
-                        analyteDetails.setInterpretationRules(organizationAnalyteInterpretationRuleService.getInterpretationRules(organizationId, item.getTest().getId()));
-                        return analyteDetails;
-                    });
+                .map(item -> {
+                    Test test = item.getTest();
+                    List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(test.getId());
+
+                    List<AnalyteDetailResponse> analyteDetailsList = analytes.stream()
+                            .map(analyte -> {
+                                AnalyteDetailResponse analyteDetails = new AnalyteDetailResponse();
+                                analyteDetails.setAnalyteId(analyte.getId());
+                                analyteDetails.setAnalyteName(analyte.getAnalyteName());
+                                if (analyte.getUnit() != null) {
+                                    analyteDetails.setUnit(analyte.getUnit().getName());
+                                }
+                                analyteDetails.setInterpretationRule(organizationAnalyteInterpretationRuleService.getInterpretationRule(organizationId, analyte.getId()));
+                                return analyteDetails;
+                            })
+                            .collect(Collectors.toList());
+
+                    return TestAnalytesResponse.builder()
+                            .testId(test.getId())
+                            .testName(test.getTestName())
+                            .analytes(analyteDetailsList)
+                            .build();
                 })
                 .collect(Collectors.toList());
     }
