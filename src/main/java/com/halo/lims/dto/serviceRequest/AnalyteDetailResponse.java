@@ -16,5 +16,5 @@ public class AnalyteDetailResponse {
     private Integer analyteId;
     private String analyteName;
     private String unit;
-    private List<InterpretationRuleResponse> interpretationRules;
+    private InterpretationRuleResponse interpretationRule;
 }

@@ -8,6 +8,7 @@ import com.halo.lims.dto.serviceRequest.ServiceRequestObservationCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestUpdateRequest;
 import com.halo.lims.security.CustomUserDetailsService;
+import com.halo.lims.dto.serviceRequest.TestAnalytesResponse;
 import com.halo.lims.security.SecurityService;
 import com.halo.lims.service.ObservationService;
 import com.halo.lims.service.ServiceRequestService;
@@ -114,8 +115,8 @@ public class ServiceRequestController {
 
     @GetMapping("/{id:[0-9]+}/analytes")
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
-    public ResponseEntity<List<AnalyteDetailResponse>> getServiceRequestAnalytes(@PathVariable Integer id) {
-        List<AnalyteDetailResponse> response = serviceRequestService.getServiceRequestAnalytes(id);
+    public ResponseEntity<List<TestAnalytesResponse>> getServiceRequestAnalytes(@PathVariable Integer id) {
+        List<TestAnalytesResponse> response = serviceRequestService.getServiceRequestAnalytes(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

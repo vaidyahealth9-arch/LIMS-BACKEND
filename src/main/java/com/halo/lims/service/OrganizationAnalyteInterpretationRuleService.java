@@ -130,4 +130,22 @@ public class OrganizationAnalyteInterpretationRuleService {
             return List.of(interpretationRuleMapper.mapToInterpretationRuleResponse(analyte));
         }).flatMap(List::stream).collect(Collectors.toList());
     }
+
+    @Transactional(readOnly = true)
+    public InterpretationRuleResponse getInterpretationRule(Integer organizationId, Integer analyteId) {
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+        TestAnalyte analyte = testAnalyteRepository.findById(analyteId)
+                .orElseThrow(() -> new RuntimeException("Analyte not found with ID: " + analyteId));
+
+        return organizationAnalyteInterpretationRuleRepository.findByOrganizationAndAnalyte(organization, analyte)
+                .stream()
+                .findFirst()
+                .map(interpretationRuleMapper::mapToInterpretationRuleResponse)
+                .orElse(testInterpretationRuleRepository.findByAnalyte(analyte)
+                        .stream()
+                        .findFirst()
+                        .map(interpretationRuleMapper::mapToInterpretationRuleResponse)
+                        .orElse(null));
+    }
 }
