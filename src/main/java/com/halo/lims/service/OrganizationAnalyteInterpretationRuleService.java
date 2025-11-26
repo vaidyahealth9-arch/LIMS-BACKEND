@@ -117,9 +117,9 @@ public class OrganizationAnalyteInterpretationRuleService {
         List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(testId);
 
         return analytes.stream().map(analyte -> {
-            List<OrganizationAnalyteInterpretationRule> orgRules = organizationAnalyteInterpretationRuleRepository.findByOrganizationAndAnalyte(organization, analyte);
-            if (!orgRules.isEmpty()) {
-                return orgRules.stream().map(interpretationRuleMapper::mapToInterpretationRuleResponse).collect(Collectors.toList());
+            OrganizationAnalyteInterpretationRule orgRule = organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(analyte.getId(), organization.getId());
+            if (orgRule != null) {
+                return List.of(interpretationRuleMapper.mapToInterpretationRuleResponse(orgRule));
             }
 
             List<com.halo.lims.model.TestInterpretationRule> globalRules = testInterpretationRuleRepository.findByAnalyte(analyte);
@@ -133,19 +133,18 @@ public class OrganizationAnalyteInterpretationRuleService {
 
     @Transactional(readOnly = true)
     public InterpretationRuleResponse getInterpretationRule(Integer organizationId, Integer analyteId) {
-        Organization organization = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
         TestAnalyte analyte = testAnalyteRepository.findById(analyteId)
                 .orElseThrow(() -> new RuntimeException("Analyte not found with ID: " + analyteId));
 
-        return organizationAnalyteInterpretationRuleRepository.findByOrganizationAndAnalyte(organization, analyte)
+        OrganizationAnalyteInterpretationRule orgRule = organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(analyteId, organizationId);
+        if (orgRule != null) {
+            return interpretationRuleMapper.mapToInterpretationRuleResponse(orgRule);
+        }
+
+        return testInterpretationRuleRepository.findByAnalyte(analyte)
                 .stream()
                 .findFirst()
                 .map(interpretationRuleMapper::mapToInterpretationRuleResponse)
-                .orElse(testInterpretationRuleRepository.findByAnalyte(analyte)
-                        .stream()
-                        .findFirst()
-                        .map(interpretationRuleMapper::mapToInterpretationRuleResponse)
-                        .orElse(null));
+                .orElse(null);
     }
 }
