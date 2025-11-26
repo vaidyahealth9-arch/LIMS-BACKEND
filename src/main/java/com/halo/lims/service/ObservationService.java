@@ -16,12 +16,15 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Objects;
 import java.util.UUID;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class ObservationService {
 
     private final ObservationRepository observationRepository;
+    private final OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository;
     private final ServiceRequestRepository serviceRequestRepository;
     private final SpecimenRepository specimenRepository;
     private final TestAnalyteRepository testAnalyteRepository;
@@ -32,6 +35,7 @@ public class ObservationService {
 
     public ObservationService(
             ObservationRepository observationRepository,
+            OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository,
             ServiceRequestRepository serviceRequestRepository,
             SpecimenRepository specimenRepository,
             TestAnalyteRepository testAnalyteRepository,
@@ -39,6 +43,7 @@ public class ObservationService {
             TestInterpretationRuleRepository testInterpretationRuleRepository,
             PractitionerRepository practitionerRepository, SecurityService securityService) {
         this.observationRepository = observationRepository;
+        this.organizationAnalyteInterpretationRuleRepository = organizationAnalyteInterpretationRuleRepository;
         this.serviceRequestRepository = serviceRequestRepository;
         this.specimenRepository = specimenRepository;
         this.testAnalyteRepository = testAnalyteRepository;
@@ -360,25 +365,35 @@ public class ObservationService {
 
     private ObservationResponse mapToObservationResponse(Observation observation) {
         ObservationResponse response = new ObservationResponse();
-        response.setId(observation.getId());
-        response.setLocalObservationValue(observation.getLocalObservationValue());
-        response.setServiceRequestId(observation.getServiceRequest().getId());
-        response.setPatientMrn(observation.getPatient().getLocalMrnValue());
-        response.setAnalyteName(observation.getAnalyte().getAnalyteName());
+        response.setId(String.format("obs-%s", observation.getId()));
+        response.setServiceRequestId(String.valueOf(observation.getServiceRequest().getId()));
+        response.setSpecimenId(String.format("spec-%s", observation.getSpecimen().getId()));
         response.setTestName(observation.getAnalyte().getParentTest().getTestName());
-        response.setSpecimenLocalValue(observation.getSpecimen() != null ? observation.getSpecimen().getLocalSpecimenValue() : null);
+        response.setAnalyteId(String.format("an-%s", observation.getAnalyte().getId()));
+        response.setAnalyteName(observation.getAnalyte().getAnalyteName());
         response.setValueNumeric(observation.getValueNumeric());
         response.setValueString(observation.getValueString());
-        response.setValueCode(observation.getValueCode());
-        response.setUnitName(observation.getUnit() != null ? observation.getUnit().getName() : null);
-        response.setInterpretationCode(observation.getInterpretationCode());
-        response.setStatus(observation.getStatus());
-        response.setPerformerName(observation.getPerformer() != null ?
-                (observation.getPerformer().getFirstName() + " " + observation.getPerformer().getLastName()) : "N/A");
+        response.setUnit(Objects.nonNull(observation.getUnit()) ? observation.getUnit().getName() : "");
+
+        ReferenceRange referenceRange = observation.getReferenceRange();
+        if (Objects.nonNull(referenceRange)) {
+            if (Objects.nonNull(referenceRange.getTextRange())) {
+                response.setReferenceRange(referenceRange.getTextRange());
+            } else {
+                response.setReferenceRange(String.format("%s - %s", referenceRange.getLowValue(), referenceRange.getHighValue()));
+            }
+        }
+
+        OrganizationAnalyteInterpretationRule interpretationRule =
+                organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(
+                        observation.getAnalyte().getId(),
+                        observation.getPatient().getOrganization().getId()
+                );
+        if (Objects.nonNull(interpretationRule)) {
+            response.setInterpretation(interpretationRule.getAutoComment());
+        }
+
         response.setEffectiveDateTime(observation.getEffectiveDateTime());
-        response.setIssuedDateTime(observation.getIssuedDateTime());
-        response.setCreatedAt(observation.getCreatedAt());
-        response.setUpdatedAt(observation.getUpdatedAt());
         return response;
     }
 

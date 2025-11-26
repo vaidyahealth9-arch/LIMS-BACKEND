@@ -2,6 +2,7 @@ package com.halo.lims.controller;
 
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.encounter.EncounterCreateRequest;
+import com.halo.lims.dto.encounter.EncounterDetailResponse;
 import com.halo.lims.dto.encounter.EncounterListResponse;
 import com.halo.lims.dto.encounter.EncounterResponse;
 import com.halo.lims.dto.encounter.EncounterUpdateRequest;
@@ -48,6 +49,13 @@ public class EncounterController {
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'MANAGER', 'DOCTOR') and @securityService.canAccessEncounter(#id)")
     public ResponseEntity<EncounterResponse> getEncounterById(@PathVariable Integer id) {
         EncounterResponse response = encounterService.getEncounterById(id);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    @GetMapping("/{id}/details")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'MANAGER', 'DOCTOR') and @securityService.canAccessEncounter(#id)")
+    public ResponseEntity<EncounterDetailResponse> getEncounterDetailsById(@PathVariable Integer id) {
+        EncounterDetailResponse response = encounterService.getEncounterDetailsById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

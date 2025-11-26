@@ -3,17 +3,29 @@ package com.halo.lims.service;
 import com.halo.lims.constant.EncounterStatus;
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.encounter.EncounterCreateRequest;
+import com.halo.lims.dto.encounter.EncounterDetailResponse;
 import com.halo.lims.dto.encounter.EncounterListResponse;
 import com.halo.lims.dto.encounter.EncounterResponse;
 import com.halo.lims.dto.encounter.EncounterUpdateRequest;
-import com.halo.lims.model.*;
-import com.halo.lims.repository.*;
+import com.halo.lims.model.Encounter;
+import com.halo.lims.model.Organization;
+import com.halo.lims.model.Patient;
+import com.halo.lims.model.ServiceRequest;
+import com.halo.lims.model.ServiceRequestItem;
+import com.halo.lims.model.Specimen;
+import com.halo.lims.repository.EncounterRepository;
+import com.halo.lims.repository.OrganizationRepository;
+import com.halo.lims.repository.PatientRepository;
+import com.halo.lims.repository.ServiceRequestItemRepository;
+import com.halo.lims.repository.ServiceRequestRepository;
+import com.halo.lims.repository.SpecimenRepository;
 import com.halo.lims.security.SecurityService;
 import jakarta.persistence.criteria.Join;
 import jakarta.persistence.criteria.Predicate;
 import jakarta.persistence.criteria.Root;
 import jakarta.persistence.criteria.Subquery;
 import org.apache.commons.lang3.StringUtils;
+import java.time.OffsetDateTime;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -22,8 +34,15 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
+import java.time.Period;
 import java.time.ZoneOffset;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -35,19 +54,22 @@ public class EncounterService {
     private final SecurityService securityService;
     private final ServiceRequestRepository serviceRequestRepository;
     private final ServiceRequestItemRepository serviceRequestItemRepository;
+    private final SpecimenRepository specimenRepository;
 
     public EncounterService(EncounterRepository encounterRepository,
                             PatientRepository patientRepository,
                             OrganizationRepository organizationRepository,
-                            SecurityService securityService, 
+                            SecurityService securityService,
                             ServiceRequestRepository serviceRequestRepository,
-                            ServiceRequestItemRepository serviceRequestItemRepository) {
+                            ServiceRequestItemRepository serviceRequestItemRepository,
+                            SpecimenRepository specimenRepository) {
         this.encounterRepository = encounterRepository;
         this.patientRepository = patientRepository;
         this.organizationRepository = organizationRepository;
         this.securityService = securityService;
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
+        this.specimenRepository = specimenRepository;
     }
 
     @Transactional
@@ -117,6 +139,51 @@ public class EncounterService {
         // --- End multi-tenancy check ---
 
         return mapToEncounterResponse(encounter);
+    }
+
+    @Transactional(readOnly = true)
+    public EncounterDetailResponse getEncounterDetailsById(Integer id) {
+        Encounter encounter = encounterRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
+        Patient patient = encounter.getPatient();
+        List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounter(encounter);
+        List<ServiceRequestItem> serviceRequestItems = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+        List<Specimen> specimens = specimenRepository.findByServiceRequestIn(serviceRequests);
+
+        EncounterDetailResponse response = new EncounterDetailResponse();
+        response.setId(encounter.getId());
+        response.setPatientId(patient.getId());
+        response.setPatientName(patient.getFirstName() + " " + patient.getLastName());
+        response.setPatientAge(calculateAge(patient.getDateOfBirth()));
+        response.setPatientGender(patient.getGender());
+        response.setMrnId(patient.getLocalMrnValue());
+        response.setReferenceDoctor(encounter.getReferenceDoctor());
+        response.setDate(encounter.getStartTime());
+        response.setLocalEncounterValue(encounter.getLocalEncounterValue());
+        if (encounter.getStatus() != null) {
+            response.setStatus(EncounterStatus.fromCode(encounter.getStatus()).map(Enum::name).orElse(encounter.getStatus()));
+        }
+
+        if (!specimens.isEmpty()) {
+            specimens.stream()
+                    .map(Specimen::getCollectionDate)
+                    .min(OffsetDateTime::compareTo)
+                    .ifPresent(response::setCollectionDate);
+            response.setSampleType(specimens.stream()
+                    .map(specimen -> specimen.getSpecimenType().getName())
+                    .distinct()
+                    .collect(Collectors.joining(", ")));
+        }
+
+        response.setTests(serviceRequestItems.stream()
+                .map(item -> item.getTest().getTestName())
+                .distinct()
+                .collect(Collectors.toList()));
+        response.setServiceRequestIds(serviceRequests.stream()
+                .map(ServiceRequest::getId)
+                .collect(Collectors.toList()));
+
+        return response;
     }
 
     @Transactional(readOnly = true)
@@ -251,5 +318,12 @@ public class EncounterService {
         response.setUpdatedAt(encounter.getUpdatedAt());
         response.setReferenceDoctor(encounter.getReferenceDoctor());
         return response;
+    }
+
+    private String calculateAge(LocalDate dateOfBirth) {
+        if (Objects.isNull(dateOfBirth)) {
+            return "";
+        }
+        return String.format("%s Years", Period.between(dateOfBirth, LocalDate.now()).getYears());
     }
 }
