@@ -92,6 +92,10 @@ public class SecurityService {
 
         if (serviceRequest == null) return false;
 
+        if (serviceRequest.getEncounter() != null && serviceRequest.getEncounter().getServiceProvider() != null) {
+            return isUserInOrganization(serviceRequest.getEncounter().getServiceProvider().getId());
+        }
+
         return isUserInOrganization(serviceRequest.getPatient().getOrganization().getId());
     }
 
