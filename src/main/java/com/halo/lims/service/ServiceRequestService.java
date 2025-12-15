@@ -10,6 +10,7 @@ import com.halo.lims.dto.serviceRequest.ServiceRequestResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestUpdateRequest;
 import com.halo.lims.model.*;
 import com.halo.lims.dto.serviceRequest.AnalyteDetailResponse;
+import com.halo.lims.model.compositeKeys.OrganizationTestAnalyteId;
 import com.halo.lims.repository.*;
 import com.halo.lims.security.SecurityService;
 import org.springframework.data.domain.Page;
@@ -41,6 +42,7 @@ public class ServiceRequestService {
     private final ReferenceRangeRepository referenceRangeRepository;
     private final SpecimenService specimenService;
     private final OrganizationAnalyteInterpretationRuleService organizationAnalyteInterpretationRuleService;
+    private final OrganizationTestAnalyteRepository organizationTestAnalyteRepository;
 
     public ServiceRequestService(ServiceRequestRepository serviceRequestRepository,
                                  ServiceRequestItemRepository serviceRequestItemRepository,
@@ -50,7 +52,7 @@ public class ServiceRequestService {
                                  TestRepository testRepository,
                                  OrganizationTestRepository organizationTestRepository,
                                  SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, SpecimenService specimenService,
-                                 OrganizationAnalyteInterpretationRuleService organizationAnalyteInterpretationRuleService) {
+                                 OrganizationAnalyteInterpretationRuleService organizationAnalyteInterpretationRuleService, OrganizationTestAnalyteRepository organizationTestAnalyteRepository) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.patientRepository = patientRepository;
@@ -63,6 +65,7 @@ public class ServiceRequestService {
         this.referenceRangeRepository = referenceRangeRepository;
         this.specimenService = specimenService;
         this.organizationAnalyteInterpretationRuleService = organizationAnalyteInterpretationRuleService;
+        this.organizationTestAnalyteRepository = organizationTestAnalyteRepository;
     }
 
     @Transactional
@@ -388,12 +391,27 @@ public class ServiceRequestService {
 
                     List<AnalyteDetailResponse> analyteDetailsList = analytes.stream()
                             .map(analyte -> {
+                                OrganizationTestAnalyteId orgAnalyteId = new OrganizationTestAnalyteId(organizationId, analyte.getId());
+                                Optional<OrganizationTestAnalyte> orgTestAnalyteOpt = organizationTestAnalyteRepository.findById(orgAnalyteId);
+
                                 AnalyteDetailResponse analyteDetails = new AnalyteDetailResponse();
                                 analyteDetails.setAnalyteId(analyte.getId());
                                 analyteDetails.setAnalyteName(analyte.getAnalyteName());
                                 if (analyte.getUnit() != null) {
                                     analyteDetails.setUnit(analyte.getUnit().getName());
                                 }
+
+                                if (orgTestAnalyteOpt.isPresent()) {
+                                    OrganizationTestAnalyte orgTestAnalyte = orgTestAnalyteOpt.get();
+                                    analyteDetails.setResultType(orgTestAnalyte.getResultType());
+                                    analyteDetails.setDecimalPlaces(orgTestAnalyte.getDecimalPlaces());
+                                    analyteDetails.setBiologicalRefInterval(orgTestAnalyte.getBiologicalRefInterval());
+                                } else {
+                                    analyteDetails.setResultType(analyte.getResultType());
+                                    analyteDetails.setDecimalPlaces(analyte.getDecimalPlaces());
+                                    analyteDetails.setBiologicalRefInterval(analyte.getBiologicalRefInterval());
+                                }
+
                                 analyteDetails.setInterpretationRule(organizationAnalyteInterpretationRuleService.getInterpretationRule(organizationId, analyte.getId()));
                                 return analyteDetails;
                             })

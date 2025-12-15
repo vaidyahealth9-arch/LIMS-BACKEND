@@ -16,5 +16,8 @@ public class AnalyteDetailResponse {
     private Integer analyteId;
     private String analyteName;
     private String unit;
+    private String resultType;
+    private Integer decimalPlaces;
+    private String biologicalRefInterval;
     private InterpretationRuleResponse interpretationRule;
 }
