@@ -37,6 +37,7 @@ public class ServiceRequestService {
     private final EncounterRepository encounterRepository;
     private final TestRepository testRepository;
     private final OrganizationTestRepository organizationTestRepository; // For lab-specific test catalog
+    private final OrganizationTestService organizationTestService;
     private final SecurityService securityService;
     private final TestAnalyteRepository testAnalyteRepository;
     private final ReferenceRangeRepository referenceRangeRepository;
@@ -51,7 +52,7 @@ public class ServiceRequestService {
                                  EncounterRepository encounterRepository,
                                  TestRepository testRepository,
                                  OrganizationTestRepository organizationTestRepository,
-                                 SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, SpecimenService specimenService,
+                                 OrganizationTestService organizationTestService, SecurityService securityService, TestAnalyteRepository testAnalyteRepository, ReferenceRangeRepository referenceRangeRepository, SpecimenService specimenService,
                                  OrganizationAnalyteInterpretationRuleService organizationAnalyteInterpretationRuleService, OrganizationTestAnalyteRepository organizationTestAnalyteRepository) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
@@ -60,6 +61,7 @@ public class ServiceRequestService {
         this.encounterRepository = encounterRepository;
         this.testRepository = testRepository;
         this.organizationTestRepository = organizationTestRepository;
+        this.organizationTestService = organizationTestService;
         this.securityService = securityService;
         this.testAnalyteRepository = testAnalyteRepository;
         this.referenceRangeRepository = referenceRangeRepository;
@@ -124,8 +126,7 @@ public class ServiceRequestService {
                         .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testSpecimenRequest.getTestId()));
 
                 // --- Lab-specific Test Catalog Check (CRITICAL) ---
-                OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testSpecimenRequest.getTestId())
-                        .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is not configured for organization ID: " + organizationId));
+                OrganizationTest orgTest = organizationTestService.getOrCreateOrganizationTest(organizationId, testSpecimenRequest.getTestId());
                 if (!orgTest.getIsEnabled()) {
                     throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is disabled for organization ID: " + organizationId);
                 }
@@ -207,8 +208,7 @@ public class ServiceRequestService {
                     Test test = testRepository.findById(testSpecimenRequest.getTestId())
                             .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testSpecimenRequest.getTestId()));
 
-                    OrganizationTest orgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testSpecimenRequest.getTestId())
-                            .orElseThrow(() -> new RuntimeException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is not configured for organization ID: " + organizationId));
+                    OrganizationTest orgTest = organizationTestService.getOrCreateOrganizationTest(organizationId, testSpecimenRequest.getTestId());
                     if (!orgTest.getIsEnabled()) {
                         throw new IllegalArgumentException("Test '" + test.getTestName() + "' (ID: " + testSpecimenRequest.getTestId() + ") is disabled for organization ID: " + organizationId);
                     }

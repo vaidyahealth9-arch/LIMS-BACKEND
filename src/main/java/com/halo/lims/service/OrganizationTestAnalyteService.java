@@ -12,6 +12,7 @@ import com.halo.lims.repository.OrganizationTestAnalyteRepository;
 import com.halo.lims.repository.TestAnalyteRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
 import java.util.stream.Collectors;
@@ -71,6 +72,22 @@ public class OrganizationTestAnalyteService {
     public void deleteOrganizationTestAnalyte(Integer organizationId, Integer testAnalyteId) {
         OrganizationTestAnalyteId id = new OrganizationTestAnalyteId(organizationId, testAnalyteId);
         organizationTestAnalyteRepository.deleteById(id);
+    }
+
+    @Transactional
+    public void bulkUpdateOrganizationTestAnalytes(Integer organizationId, Integer testId, List<Integer> analyteIds) {
+        organizationTestAnalyteRepository.deleteByOrganizationIdAndTestId(organizationId, testId);
+        Organization organization = organizationRepository.findById(organizationId)
+                .orElseThrow(() -> new RuntimeException("Organization not found"));
+        analyteIds.forEach(analyteId -> {
+            TestAnalyte testAnalyte = testAnalyteRepository.findById(analyteId)
+                    .orElseThrow(() -> new RuntimeException("TestAnalyte not found"));
+            OrganizationTestAnalyte organizationTestAnalyte = OrganizationTestAnalyte.builder()
+                    .organization(organization)
+                    .testAnalyte(testAnalyte)
+                    .build();
+            organizationTestAnalyteRepository.save(organizationTestAnalyte);
+        });
     }
 
     private OrganizationTestAnalyteDto toDto(OrganizationTestAnalyte organizationTestAnalyte) {
