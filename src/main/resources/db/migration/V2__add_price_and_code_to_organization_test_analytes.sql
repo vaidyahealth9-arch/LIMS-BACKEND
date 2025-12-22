@@ -1,0 +1,3 @@
+ALTER TABLE organization_test_analytes
+ADD COLUMN price DOUBLE PRECISION,
+ADD COLUMN code VARCHAR(100);
