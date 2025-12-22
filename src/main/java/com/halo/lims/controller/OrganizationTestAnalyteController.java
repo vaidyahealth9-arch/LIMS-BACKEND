@@ -1,5 +1,6 @@
 package com.halo.lims.controller;
 
+import com.halo.lims.dto.organizationTestAnalyte.BulkUpdateOrganizationTestAnalyteRequest;
 import com.halo.lims.dto.organizationTestAnalyte.CreateOrganizationTestAnalyteRequest;
 import com.halo.lims.dto.organizationTestAnalyte.OrganizationTestAnalyteDto;
 import com.halo.lims.dto.organizationTestAnalyte.UpdateOrganizationTestAnalyteRequest;
@@ -46,5 +47,11 @@ public class OrganizationTestAnalyteController {
     public ResponseEntity<Void> deleteOrganizationTestAnalyte(@PathVariable Integer organizationId, @PathVariable Integer testAnalyteId) {
         organizationTestAnalyteService.deleteOrganizationTestAnalyte(organizationId, testAnalyteId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/organization/{organizationId}/test/{testId}")
+    public ResponseEntity<Void> bulkUpdateOrganizationTestAnalytes(@PathVariable Integer organizationId, @PathVariable Integer testId, @RequestBody BulkUpdateOrganizationTestAnalyteRequest request) {
+        organizationTestAnalyteService.bulkUpdateOrganizationTestAnalytes(organizationId, testId, request.getAnalyteIds());
+        return ResponseEntity.ok().build();
     }
 }

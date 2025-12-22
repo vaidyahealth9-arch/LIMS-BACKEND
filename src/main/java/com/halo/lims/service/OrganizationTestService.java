@@ -4,9 +4,13 @@ import com.halo.lims.dto.organization.test.OrganizationTestRequest;
 import com.halo.lims.dto.organization.test.OrganizationTestResponse;
 import com.halo.lims.model.Organization;
 import com.halo.lims.model.OrganizationTest;
+import com.halo.lims.model.OrganizationTestAnalyte;
 import com.halo.lims.model.Test;
+import com.halo.lims.model.TestAnalyte;
 import com.halo.lims.repository.OrganizationRepository;
+import com.halo.lims.repository.OrganizationTestAnalyteRepository;
 import com.halo.lims.repository.OrganizationTestRepository;
+import com.halo.lims.repository.TestAnalyteRepository;
 import com.halo.lims.repository.TestRepository;
 import com.halo.lims.security.SecurityService;
 import org.springframework.stereotype.Service;
@@ -46,26 +50,9 @@ public class OrganizationTestService {
             throw new org.springframework.security.access.AccessDeniedException("User not authorized to manage tests for organization ID: " + organizationId);
         }
 
-        Organization organization = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
-        Test test = testRepository.findById(request.getTestId())
-                .orElseThrow(() -> new RuntimeException("Test not found with ID: " + request.getTestId()));
-
-        Optional<OrganizationTest> existingOrgTest = organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, test.getId());
-
-        OrganizationTest organizationTest;
-        if (existingOrgTest.isPresent()) {
-            organizationTest = existingOrgTest.get();
-            organizationTest.setIsEnabled(request.getIsEnabled());
-            organizationTest.setPrice(request.getPrice());
-        } else {
-            organizationTest = OrganizationTest.builder()
-                    .organization(organization)
-                    .test(test)
-                    .isEnabled(request.getIsEnabled())
-                    .price(request.getPrice())
-                    .build();
-        }
+        OrganizationTest organizationTest = getOrCreateOrganizationTest(organizationId, request.getTestId());
+        organizationTest.setIsEnabled(request.getIsEnabled());
+        organizationTest.setPrice(request.getPrice());
 
         OrganizationTest savedOrgTest = organizationTestRepository.save(organizationTest);
         return mapToOrganizationTestResponse(savedOrgTest);
@@ -118,6 +105,24 @@ public class OrganizationTestService {
         return organizationTestRepository.findByOrganization_IdAndIsEnabled(organizationId, true).stream()
                 .map(this::mapToOrganizationTestResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public OrganizationTest getOrCreateOrganizationTest(Integer organizationId, Integer testId) {
+        return organizationTestRepository.findByOrganization_IdAndTest_Id(organizationId, testId)
+                .orElseGet(() -> {
+                    Organization organization = organizationRepository.findById(organizationId)
+                            .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + organizationId));
+                    Test test = testRepository.findById(testId)
+                            .orElseThrow(() -> new RuntimeException("Test not found with ID: " + testId));
+                    OrganizationTest newOrgTest = OrganizationTest.builder()
+                            .organization(organization)
+                            .test(test)
+                            .isEnabled(true)
+                            .price(null) // or a default price
+                            .build();
+                    return organizationTestRepository.save(newOrgTest);
+                });
     }
 
     private OrganizationTestResponse mapToOrganizationTestResponse(OrganizationTest organizationTest) {
