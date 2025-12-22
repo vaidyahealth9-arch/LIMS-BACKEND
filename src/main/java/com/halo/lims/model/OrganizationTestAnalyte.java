@@ -38,6 +38,12 @@ public class OrganizationTestAnalyte {
     @Column(name = "biological_ref_interval", columnDefinition = "TEXT")
     private String biologicalRefInterval;
 
+    @Column(name = "price")
+    private Double price;
+
+    @Column(name = "code", length = 100)
+    private String code;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
