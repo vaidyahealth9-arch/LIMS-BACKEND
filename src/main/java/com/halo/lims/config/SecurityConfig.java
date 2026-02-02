@@ -77,8 +77,8 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Permit all OPTIONS requests
                         .requestMatchers("/api/auth/**").permitAll()
                         // Allow access to Swagger UI
-                        .requestMatchers("/swagger-ui/**").permitAll()
-                        .requestMatchers("/v3/api-docs/**").permitAll()
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**").permitAll()
+                        .requestMatchers("v3/api-docs", "/v3/api-docs/**").permitAll()
                         // Public endpoints (e.g., ABHA init, if applicable without auth)
                         // .requestMatchers("/api/public/**").permitAll()
                         .anyRequest().authenticated() // All other requests require authentication
