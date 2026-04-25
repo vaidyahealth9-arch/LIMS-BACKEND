@@ -1,5 +1,5 @@
-# Use the official Eclipse Temurin base image for Java 21
-FROM eclipse-temurin:21-jdk-alpine AS build
+# Use the official Eclipse Temurin base image for Java 21 (Debian-based for glibc compatibility)
+FROM eclipse-temurin:21-jdk AS build
 
 # Set the working directory
 WORKDIR /app
@@ -19,9 +19,10 @@ COPY src src
 # Package the application
 RUN ./mvnw clean package -DskipTests
 
-# Use a smaller JRE image for the final image
-FROM eclipse-temurin:21-jre-alpine
-RUN addgroup -S appgroup && adduser -S appuser -G appgroup
+# Use a smaller JRE image for the final image (Debian-based, NOT Alpine)
+# Alpine uses musl libc which is incompatible with netty-tcnative (used by spring-cloud-gcp Cloud SQL connector)
+FROM eclipse-temurin:21-jre
+RUN groupadd -r appgroup && useradd -r -g appgroup appuser
 WORKDIR /app
 
 # Copy the JAR from the build stage
