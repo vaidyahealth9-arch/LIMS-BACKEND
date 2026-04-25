@@ -40,8 +40,9 @@ jobs:
           image: ${{ env.REGION }}-docker.pkg.dev/${{ env.PROJECT_ID }}/${{ env.REPO }}/${{ env.SERVICE }}:${{ github.sha }}
           flags: '--allow-unauthenticated --memory=2Gi --timeout=300 --add-cloudsql-instances=${{ env.PROJECT_ID }}:${{ env.REGION }}:lims-db-dev'
           env_vars: |-
-            SPRING_PROFILES_ACTIVE=prod
+            SPRING_PROFILES_ACTIVE=prod,gcp
             GCP_PROJECT_ID=${{ env.PROJECT_ID }}
+            GCP_SQL_INSTANCE=${{ env.PROJECT_ID }}:${{ env.REGION }}:lims-db-dev
             GCS_BUCKET_NAME=vaidya-lims-reports-dev
             REPORT_STORAGE_PROVIDER=gcs
             DB_USERNAME=postgres
