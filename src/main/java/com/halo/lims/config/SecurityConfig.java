@@ -90,6 +90,7 @@ public class SecurityConfig {
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Permit all OPTIONS requests
                         .requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/api/health").permitAll()
+                        .requestMatchers("/api/internal/seed").permitAll()
                         .requestMatchers("/api/integration/**").permitAll() // Internal service-to-service (PHR ↔ LIMS)
                     .requestMatchers("/error").permitAll()
                         // Allow access to Swagger UI
