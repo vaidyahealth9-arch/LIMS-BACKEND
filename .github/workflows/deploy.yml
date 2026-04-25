@@ -43,6 +43,8 @@ jobs:
             SPRING_PROFILES_ACTIVE=prod
             SPRING_CLOUD_GCP_PROJECT_ID=${{ env.PROJECT_ID }}
             SPRING_CLOUD_GCP_SQL_INSTANCE_CONNECTION_NAME=${{ env.PROJECT_ID }}:${{ env.REGION }}:lims-db-dev
+            SPRING_JPA_HIBERNATE_DDL_AUTO=update
+            SPRING_FLYWAY_ENABLED=false
             GCS_BUCKET_NAME=vaidya-lims-reports-dev
             REPORT_STORAGE_PROVIDER=gcs
             DB_USERNAME=postgres
