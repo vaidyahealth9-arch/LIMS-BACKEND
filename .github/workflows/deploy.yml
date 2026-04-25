@@ -46,6 +46,6 @@ jobs:
             REPORT_STORAGE_PROVIDER=gcs
             DB_USERNAME=postgres
             DB_NAME=lims
-          secret_env_vars: |-
+          secrets: |-
             DB_PASSWORD=lims-db-password:latest
             JWT_SECRET=lims-jwt-secret:latest
