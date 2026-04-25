@@ -1,4 +1,4 @@
-﻿-- ============================================================
+-- ============================================================
 -- LIMS Comprehensive Seed Data (auto-generated from LIMS-Drive)
 -- ============================================================
 -- Generated on: 2026-03-27T20:53:46.775597
@@ -9,7 +9,7 @@
 --   BCrypt hash: $2a$10$JP3DoBRwEP9FfXd84iRS1e3uB/suq5HYYjG4aABYI9UvCJg8Q5eca
 -- ============================================================
 
-BEGIN;
+
 
 SET search_path TO public;
 
@@ -391,9 +391,3 @@ INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result
 INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1098, 'Numeric', 0, '', NULL, 'BH_TITER', NOW(), NOW());
 INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1096, 'Numeric', 0, '', NULL, 'TH_TITER', NOW(), NOW());
 INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1095, 'Numeric', 0, '', NULL, 'TO_TITER', NOW(), NOW());
-
--- ============================================================
--- COMMIT & SUCCESS MESSAGE
--- ============================================================
-COMMIT;
-SELECT 'Seed data loaded successfully!' AS status;
