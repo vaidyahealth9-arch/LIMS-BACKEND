@@ -1,9 +1,7 @@
 package com.halo.lims.model;
 
-
 import com.halo.lims.model.compositeKeys.OrganizationTestId;
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -15,7 +13,6 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "organization_tests")
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -44,4 +41,23 @@ public class OrganizationTest {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    // Getters and Setters
+    public Organization getOrganization() { return organization; }
+    public void setOrganization(Organization organization) { this.organization = organization; }
+
+    public Test getTest() { return test; }
+    public void setTest(Test test) { this.test = test; }
+
+    public Boolean getIsEnabled() { return isEnabled; }
+    public void setIsEnabled(Boolean isEnabled) { this.isEnabled = isEnabled; }
+
+    public BigDecimal getPrice() { return price; }
+    public void setPrice(BigDecimal price) { this.price = price; }
+
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

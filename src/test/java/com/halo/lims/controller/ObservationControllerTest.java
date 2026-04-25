@@ -2,47 +2,6 @@ package com.halo.lims.controller;
 
 import com.halo.lims.dto.observation.ObservationResponse;
 import com.halo.lims.security.CustomUserDetailsService;
-import com.halo.lims.security.JwtUtil;
-import com.halo.lims.security.SecurityService;
-import com.halo.lims.service.ObservationService;
-import com.halo.lims.service.ServiceRequestService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.TestPropertySource;
-import com.halo.lims.dto.observation.ObservationResponse;
-import com.halo.lims.security.CustomUserDetailsService;
-import com.halo.lims.security.JwtUtil;
-import com.halo.lims.security.SecurityService;
-import com.halo.lims.service.ObservationService;
-import com.halo.lims.service.ServiceRequestService;
-import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.web.servlet.MockMvc;
-
-import java.math.BigDecimal;
-import java.time.OffsetDateTime;
-import java.util.Arrays;
-import java.util.List;
-
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.BDDMockito.given;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import com.halo.lims.dto.observation.ObservationResponse;
-import com.halo.lims.security.CustomUserDetailsService;
-import com.halo.lims.security.JwtUtil;
-import com.halo.lims.security.SecurityService;
-import com.halo.lims.service.ObservationService;
-import com.halo.lims.dto.observation.ObservationResponse;
-import com.halo.lims.security.CustomUserDetailsService;
 import com.halo.lims.security.JwtRequestFilter;
 import com.halo.lims.security.JwtUtil;
 import com.halo.lims.security.SecurityService;
@@ -52,23 +11,19 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.AutoConfigureMockMvc;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.FilterType;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
 import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -86,19 +41,19 @@ public class ObservationControllerTest {
     @Autowired
     private MockMvc mockMvc;
 
-    @MockBean
+    @MockitoBean
     private ObservationService observationService;
 
-    @MockBean
+    @MockitoBean
     private ServiceRequestService serviceRequestService;
 
-    @MockBean
+    @MockitoBean
     private SecurityService securityService;
 
-    @MockBean
+    @MockitoBean
     private CustomUserDetailsService customUserDetailsService;
 
-    @MockBean
+    @MockitoBean
     private JwtUtil jwtUtil;
 
     @Test

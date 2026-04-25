@@ -1,7 +1,6 @@
 package com.halo.lims.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +11,6 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "test_analytes")
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -63,4 +61,47 @@ public class TestAnalyte {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    // Getters and Setters
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getAnalyteCode() { return analyteCode; }
+    public void setAnalyteCode(String analyteCode) { this.analyteCode = analyteCode; }
+
+    public String getAnalyteName() { return analyteName; }
+    public void setAnalyteName(String analyteName) { this.analyteName = analyteName; }
+
+    public Test getParentTest() { return parentTest; }
+    public void setParentTest(Test parentTest) { this.parentTest = parentTest; }
+
+    public String getLoincCode() { return loincCode; }
+    public void setLoincCode(String loincCode) { this.loincCode = loincCode; }
+
+    public String getLoincSystem() { return loincSystem; }
+    public void setLoincSystem(String loincSystem) { this.loincSystem = loincSystem; }
+
+    public Unit getUnit() { return unit; }
+    public void setUnit(Unit unit) { this.unit = unit; }
+
+    public String getResultType() { return resultType; }
+    public void setResultType(String resultType) { this.resultType = resultType; }
+
+    public Integer getDecimalPlaces() { return decimalPlaces; }
+    public void setDecimalPlaces(Integer decimalPlaces) { this.decimalPlaces = decimalPlaces; }
+
+    public String getBiologicalRefInterval() { return biologicalRefInterval; }
+    public void setBiologicalRefInterval(String biologicalRefInterval) { this.biologicalRefInterval = biologicalRefInterval; }
+
+    public Boolean getIsDerived() { return isDerived; }
+    public void setIsDerived(Boolean isDerived) { this.isDerived = isDerived; }
+
+    public String getFormula() { return formula; }
+    public void setFormula(String formula) { this.formula = formula; }
+
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

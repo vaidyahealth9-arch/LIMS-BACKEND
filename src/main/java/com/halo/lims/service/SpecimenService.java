@@ -88,6 +88,7 @@ public class SpecimenService {
                 .localSpecimenSystem("http://com.lims/specimen-id")
                 .localSpecimenValue(localSpecimenId)
                 .barcode(barcodeImage)
+                .barcodeRegeneratedCount(0)
                 .build();
 
         return specimenRepository.save(specimen);

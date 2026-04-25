@@ -1,432 +1,300 @@
 package com.halo.lims.service;
 
+import com.halo.lims.constant.EncounterStatus;
 import com.halo.lims.dto.observation.ObservationCreateRequest;
 import com.halo.lims.dto.observation.ObservationResponse;
 import com.halo.lims.dto.observation.ObservationUpdateRequest;
 import com.halo.lims.model.*;
 import com.halo.lims.repository.*;
-import com.halo.lims.security.SecurityService;
-import org.springframework.security.access.AccessDeniedException;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.math.BigDecimal;
 import java.time.OffsetDateTime;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.UUID;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.stream.Collectors;
+import com.halo.lims.dto.observation.ObservationHistoryPointResponse;
+import java.util.UUID;
 
 @Service
+@RequiredArgsConstructor
+@Slf4j
 public class ObservationService {
 
     private final ObservationRepository observationRepository;
-    private final OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository;
+    private final TestAnalyteRepository testAnalyteRepository;
     private final ServiceRequestRepository serviceRequestRepository;
     private final SpecimenRepository specimenRepository;
-    private final TestAnalyteRepository testAnalyteRepository;
-    private final ReferenceRangeRepository referenceRangeRepository;
-    private final TestInterpretationRuleRepository testInterpretationRuleRepository;
     private final PractitionerRepository practitionerRepository;
-    private final SecurityService securityService;
+    private final EncounterRepository encounterRepository;
+    private final ReferenceRangeRepository referenceRangeRepository;
+    private final ReportApprovalService reportApprovalService;
 
-    public ObservationService(
-            ObservationRepository observationRepository,
-            OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository,
-            ServiceRequestRepository serviceRequestRepository,
-            SpecimenRepository specimenRepository,
-            TestAnalyteRepository testAnalyteRepository,
-            ReferenceRangeRepository referenceRangeRepository,
-            TestInterpretationRuleRepository testInterpretationRuleRepository,
-            PractitionerRepository practitionerRepository, SecurityService securityService) {
-        this.observationRepository = observationRepository;
-        this.organizationAnalyteInterpretationRuleRepository = organizationAnalyteInterpretationRuleRepository;
-        this.serviceRequestRepository = serviceRequestRepository;
-        this.specimenRepository = specimenRepository;
-        this.testAnalyteRepository = testAnalyteRepository;
-        this.referenceRangeRepository = referenceRangeRepository;
-        this.testInterpretationRuleRepository = testInterpretationRuleRepository;
-        this.practitionerRepository = practitionerRepository;
-        this.securityService = securityService;
-    }
-
-    /**
-     * Creates a new Observation record.
-     * This is typically performed by a Technician.
-     * @param request The DTO containing observation details.
-     * @param performerId The ID of the Practitioner (technician) performing the action.
-     * @return The created ObservationResponse.
-     */
     @Transactional
     public ObservationResponse createObservation(ObservationCreateRequest request, Integer performerId) {
-        ServiceRequest serviceRequest = serviceRequestRepository.findById(request.getServiceRequestId())
-                .orElseThrow(() -> new RuntimeException("Service Request not found with ID: " + request.getServiceRequestId()));
-        Specimen specimen = null;
-        if(Objects.nonNull(request.getSpecimenId())){
-            specimen = specimenRepository.findById(request.getSpecimenId())
-                    .orElseThrow(() -> new RuntimeException("Specimen not found with ID: " + request.getSpecimenId()));
-        }
+        log.info("Creating observation for service request: {}", request.getServiceRequestId());
+
+        ServiceRequest sr = serviceRequestRepository.findById(request.getServiceRequestId())
+                .orElseThrow(() -> new IllegalArgumentException("Service Request not found"));
+
         TestAnalyte analyte = testAnalyteRepository.findById(request.getAnalyteId())
-                .orElseThrow(() -> new RuntimeException("Analyte not found with ID: " + request.getAnalyteId()));
+                .orElseThrow(() -> new IllegalArgumentException("Analyte not found"));
+
         Practitioner performer = practitionerRepository.findById(performerId)
-                .orElseThrow(() -> new RuntimeException("Performer not found with ID: " + performerId));
+                .orElseThrow(() -> new IllegalArgumentException("Performer not found"));
 
-        // --- Multi-tenancy check (internal) ---
-        Integer organizationId = serviceRequest.getPatient().getOrganization().getId();
-        if (!securityService.isUserInOrganization(organizationId)) {
-            throw new AccessDeniedException("User not authorized to create observations for organization ID: " + organizationId);
-        }
-        // --- End multi-tenancy check ---
-
-        if (Objects.nonNull(specimen) && !serviceRequest.getPatient().getId().equals(specimen.getPatient().getId())) {
-            throw new IllegalArgumentException("Patient mismatch between Service Request and Specimen.");
+        Specimen specimen = null;
+        if (request.getSpecimenId() != null) {
+            specimen = specimenRepository.findById(request.getSpecimenId()).orElse(null);
         }
 
-        Observation observation = new Observation();
-        observation.setServiceRequest(serviceRequest);
-        observation.setSpecimen(specimen);
-        observation.setAnalyte(analyte);
-        observation.setPatient(serviceRequest.getPatient()); // Use patient from ServiceRequest
+        Observation obs = Observation.builder()
+                .serviceRequest(sr)
+                .patient(sr.getPatient())
+                .analyte(analyte)
+                .specimen(specimen)
+                .performer(performer)
+                .status("preliminary")
+                .valueNumeric(request.getValueNumeric())
+                .valueString(request.getValueString())
+                .valueCode(request.getValueCode())
+                .valueCodeSystem(request.getValueCodeSystem())
+                .comments(request.getComments())
+                .effectiveDateTime(request.getEffectiveDateTime() != null ? request.getEffectiveDateTime() : OffsetDateTime.now())
+                .issuedDateTime(OffsetDateTime.now())
+                .localObservationSystem("LIMS")
+                .localObservationValue(UUID.randomUUID().toString())
+                .unit(analyte.getUnit())
+                .build();
 
-        // Set value based on analyte type
-        switch (analyte.getResultType().toLowerCase()) {
-            case "numeric":
-                if (request.getValueNumeric() == null) throw new IllegalArgumentException("Numeric value required for this analyte.");
-                observation.setValueNumeric(request.getValueNumeric());
-                break;
-            case "text":
-                if (request.getValueString() == null) throw new IllegalArgumentException("String value required for this analyte.");
-                observation.setValueString(request.getValueString());
-                break;
-            case "coded":
-                if (request.getValueCode() == null) throw new IllegalArgumentException("Coded value required for this analyte.");
-                observation.setValueCode(request.getValueCode());
-                observation.setValueCodeSystem(request.getValueCodeSystem() != null ? request.getValueCodeSystem() : "http://lims.com/codesystem/local"); // Default for local codes
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported result type for analyte: " + analyte.getResultType());
-        }
+        applyReferenceRangeInterpretation(obs);
 
-        observation.setUnit(analyte.getUnit()); // Default unit from analyte definition
-        observation.setEffectiveDateTime(request.getEffectiveDateTime() != null ? request.getEffectiveDateTime() : OffsetDateTime.now());
-        observation.setIssuedDateTime(OffsetDateTime.now()); // Initially set, will be updated on finalization
-        observation.setStatus("preliminary"); // Technician enters as preliminary
-        observation.setPerformer(performer);
-
-        // Generate a unique local observation ID
-        observation.setLocalObservationSystem("http://com.lims/observation-id");
-        observation.setLocalObservationValue(generateLocalObservationId()); // e.g., OBS+SRID+ANID+YYMMDD
-
-        // Basic interpretation based on reference ranges
-        applyReferenceRangeInterpretation(observation, analyte);
-
-        Observation savedObservation = observationRepository.save(observation);
-        return mapToObservationResponse(savedObservation);
+        Observation saved = observationRepository.save(obs);
+        return mapToResponse(saved);
     }
 
-    /**
-     * Updates an existing Observation record.
-     * Can be done by Technician or Pathologist.
-     * @param id The ID of the Observation to update.
-     * @param request The DTO containing updated observation details.
-     * @param performerId The ID of the Practitioner (technician/pathologist) performing the action.
-     * @return The updated ObservationResponse.
-     */
     @Transactional
     public ObservationResponse updateObservation(Integer id, ObservationUpdateRequest request, Integer performerId) {
-        Observation observation = observationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Observation not found with ID: " + id));
-        Practitioner performer = practitionerRepository.findById(performerId)
-                .orElseThrow(() -> new RuntimeException("Performer not found with ID: " + performerId));
+        log.info("Updating observation: {}", id);
 
-        // --- Multi-tenancy check (internal) ---
-        Integer organizationId = observation.getPatient().getOrganization().getId();
-        if (!securityService.isUserInOrganization(organizationId)) {
-            throw new AccessDeniedException("User not authorized to update observations for organization ID: " + organizationId);
-        }
-        // --- End multi-tenancy check ---
+        Observation obs = observationRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Observation not found"));
 
-        if ("final".equals(observation.getStatus()) || "cancelled".equals(observation.getStatus())) {
-            throw new IllegalStateException("Cannot update a finalized or cancelled observation.");
+        if ("final".equals(obs.getStatus())) {
+            throw new IllegalStateException("Cannot update finalized observation");
         }
 
-        TestAnalyte analyte = observation.getAnalyte();
-
-        // Update value based on analyte type
-        switch (analyte.getResultType().toLowerCase()) {
-            case "numeric":
-                if (request.getValueNumeric() == null) throw new IllegalArgumentException("Numeric value required for this analyte.");
-                observation.setValueNumeric(request.getValueNumeric());
-                observation.setValueString(null); observation.setValueCode(null);
-                break;
-            case "text":
-                if (request.getValueString() == null) throw new IllegalArgumentException("String value required for this analyte.");
-                observation.setValueString(request.getValueString());
-                observation.setValueNumeric(null); observation.setValueCode(null);
-                break;
-            case "coded":
-                if (request.getValueCode() == null) throw new IllegalArgumentException("Coded value required for this analyte.");
-                observation.setValueCode(request.getValueCode());
-                observation.setValueCodeSystem(request.getValueCodeSystem() != null ? request.getValueCodeSystem() : "http://lims.com/codesystem/local");
-                observation.setValueNumeric(null); observation.setValueString(null);
-                break;
-            default:
-                throw new IllegalArgumentException("Unsupported result type for analyte: " + analyte.getResultType());
+        obs.setValueNumeric(request.getValueNumeric());
+        obs.setValueString(request.getValueString());
+        obs.setValueCode(request.getValueCode());
+        obs.setValueCodeSystem(request.getValueCodeSystem());
+        obs.setComments(request.getComments());
+        obs.setInterpretationCode(request.getInterpretationCode());
+        if (request.getEffectiveDateTime() != null) {
+            obs.setEffectiveDateTime(request.getEffectiveDateTime());
         }
 
-        observation.setEffectiveDateTime(request.getEffectiveDateTime() != null ? request.getEffectiveDateTime() : OffsetDateTime.now());
-        observation.setPerformer(performer); // Update performer if changed
+        applyReferenceRangeInterpretation(obs);
 
-        // Basic interpretation based on reference ranges
-        applyReferenceRangeInterpretation(observation, analyte);
-
-        Observation updatedObservation = observationRepository.save(observation);
-        return mapToObservationResponse(updatedObservation);
+        Observation saved = observationRepository.save(obs);
+        return mapToResponse(saved);
     }
 
-    /**
-     * Sends a batch of observations for verification.
-     * @param observationIds List of Observation IDs to send for verification.
-     * @param technicianId The ID of the Technician performing the action.
-     * @return List of updated ObservationResponses.
-     */
     @Transactional
     public List<ObservationResponse> sendForVerification(List<Integer> observationIds, Integer technicianId) {
+        log.info("Sending observations for verification: {}", observationIds);
+
         List<Observation> observations = observationRepository.findAllById(observationIds);
-        if (observations.isEmpty()) {
-            throw new RuntimeException("No observations found for verification.");
-        }
-
-        // --- Multi-tenancy check for ALL observations in the batch ---
-        // Ensure all observations belong to the same organization and user has access
-        Integer organizationId = observations.get(0).getPatient().getOrganization().getId(); // Assuming all belong to same org
-        if (!securityService.isUserInOrganization(organizationId)) {
-            throw new AccessDeniedException("User not authorized to verify observations for organization ID: " + organizationId);
-        }
-        // You might want to loop and check each observation's organization for robust check
         for (Observation obs : observations) {
-            if (!obs.getPatient().getOrganization().getId().equals(organizationId)) {
-                throw new IllegalArgumentException("Batch verification contains observations from multiple organizations.");
+            // If already pending-verification or final, skip instead of error
+            if ("pending-verification".equalsIgnoreCase(obs.getStatus()) || "final".equalsIgnoreCase(obs.getStatus())) {
+                continue;
             }
+            obs.setStatus("pending-verification");
         }
-        // --- End multi-tenancy check ---
 
-        // Validate that the technician is authorized (via Spring Security in controller)
-        // And that observations are in a state that can be sent for verification
-        observations.forEach(obs -> {
-            if (!"preliminary".equals(obs.getStatus()) && !"amended".equals(obs.getStatus())) {
-                throw new IllegalStateException("Observation " + obs.getLocalObservationValue() + " cannot be sent for verification as its status is " + obs.getStatus());
-            }
-            obs.setStatus("pending-verification"); // Custom status for the workflow
-            obs.setPerformer(practitionerRepository.findById(technicianId) // Optionally update performer here
-                    .orElseThrow(() -> new RuntimeException("Technician not found")));
-        });
+        List<Observation> saved = observationRepository.saveAll(observations);
 
-        List<Observation> updatedObservations = observationRepository.saveAll(observations);
-        return updatedObservations.stream()
-                .map(this::mapToObservationResponse)
-                .collect(Collectors.toList());
+        // Promote encounter to PENDING_VERIFICATION if it's currently IN_PROGRESS or ARRIVED
+        observations.stream()
+                .map(o -> o.getServiceRequest().getEncounter())
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .forEach(e -> {
+                    String status = e.getStatus();
+                    if ("in-progress".equalsIgnoreCase(status) || "arrived".equalsIgnoreCase(status)) {
+                        e.setStatus(EncounterStatus.PENDING_VERIFICATION.getCode());
+                        encounterRepository.save(e);
+                        log.info("Encounter {} promoted to PENDING_VERIFICATION as observations were sent.", e.getId());
+                    }
+                });
+
+        return saved.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-    /**
-     * Approves and finalizes a batch of observations.
-     * This is typically performed by a Pathologist.
-     * @param observationIds List of Observation IDs to approve.
-     * @param pathologistId The ID of the Practitioner (pathologist) performing the action.
-     * @return List of finalized ObservationResponses.
-     */
     @Transactional
     public List<ObservationResponse> approveObservations(List<Integer> observationIds, Integer pathologistId) {
+        log.info("Approving observations: {}", observationIds);
+
         List<Observation> observations = observationRepository.findAllById(observationIds);
-        if (observations.isEmpty()) {
-            throw new RuntimeException("No observations found for approval.");
-        }
+        if (observations.isEmpty()) return new ArrayList<>();
 
-        // --- Multi-tenancy check for ALL observations in the batch ---
-        Integer organizationId = observations.get(0).getPatient().getOrganization().getId(); // Assuming all belong to same org
-        if (!securityService.isUserInOrganization(organizationId)) {
-            throw new AccessDeniedException("User not authorized to approve observations for organization ID: " + organizationId);
-        }
-        for (Observation obs : observations) {
-            if (!obs.getPatient().getOrganization().getId().equals(organizationId)) {
-                throw new IllegalArgumentException("Batch approval contains observations from multiple organizations.");
-            }
-        }
-        // --- End multi-tenancy check ---
-
-        // Validate that the pathologist is authorized and observations are ready for approval
         Practitioner pathologist = practitionerRepository.findById(pathologistId)
-                .orElseThrow(() -> new RuntimeException("Pathologist not found with ID: " + pathologistId));
+                .orElseThrow(() -> new IllegalArgumentException("Pathologist not found"));
 
-        observations.forEach(obs -> {
-            if (!"pending-verification".equals(obs.getStatus()) && !"preliminary".equals(obs.getStatus())) {
-                throw new IllegalStateException("Observation " + obs.getLocalObservationValue() + " cannot be approved as its status is " + obs.getStatus());
-            }
-            obs.setStatus("final"); // FHIR status for final
-            obs.setIssuedDateTime(OffsetDateTime.now()); // Time of finalization
-            obs.setPerformer(pathologist); // Pathologist as the final verifier
-            // Apply advanced interpretation rules if any (Milestone 7.6)
-            applyInterpretationRules(obs);
-        });
-
-        List<Observation> approvedObservations = observationRepository.saveAll(observations);
-
-        // TODO: Trigger DiagnosticReport creation/update if all observations for a service request are final
-        // For example: check if all ServiceRequestItems for the SR are finalized, then generate DiagnosticReport.
-
-        return approvedObservations.stream()
-                .map(this::mapToObservationResponse)
-                .collect(Collectors.toList());
-    }
-
-
-    /**
-     * Finds and applies the most specific reference range interpretation.
-     * @param observation The observation to interpret.
-     * @param analyte The analyte definition.
-     */
-    private void applyReferenceRangeInterpretation(Observation observation, TestAnalyte analyte) {
-        // This is a simplified logic. A full implementation would consider patient's age/gender.
-        List<ReferenceRange> ranges = referenceRangeRepository.findByAnalyte(analyte);
-
-        if (observation.getValueNumeric() != null) {
-            BigDecimal resultValue = observation.getValueNumeric();
-            ReferenceRange matchingRange = ranges.stream()
-                    // Filter by gender and age if available and applicable (for now, simple filter or first match)
-                    .filter(range -> (range.getGender() == null || range.getGender().equalsIgnoreCase(observation.getPatient().getGender())))
-                    // Sort to find most specific, or just take first applicable
-                    .min(Comparator.comparing(rr -> (rr.getMinAgeYears() != null ? rr.getMinAgeYears() : -1) + (rr.getMaxAgeYears() != null ? rr.getMaxAgeYears() : 999))) // Simple attempt to prefer more specific ranges
-                    .orElse(null);
-
-            if (matchingRange != null) {
-                if (resultValue.compareTo(matchingRange.getLowValue()) < 0) {
-                    observation.setInterpretationCode("L"); // Low
-                } else if (resultValue.compareTo(matchingRange.getHighValue()) > 0) {
-                    observation.setInterpretationCode("H"); // High
-                } else {
-                    observation.setInterpretationCode("N"); // Normal
-                }
-                observation.setReferenceRange(matchingRange);
-            } else {
-                observation.setInterpretationCode("UNK"); // Unknown/No Range
-            }
-        } else if (observation.getValueString() != null || observation.getValueCode() != null) {
-            // For text/coded results, direct mapping or specific rules needed
-            // e.g., if valueString "Negative" maps to "N"
-            ReferenceRange matchingRange = ranges.stream()
-                    .filter(range -> range.getTextRange() != null &&
-                            (range.getTextRange().equalsIgnoreCase(observation.getValueString()) ||
-                                    range.getTextRange().equalsIgnoreCase(observation.getValueCode())))
-                    .findFirst()
-                    .orElse(null);
-            if (matchingRange != null) {
-                observation.setInterpretationCode(matchingRange.getInterpretationCode());
-                observation.setReferenceRange(matchingRange);
-            } else {
-                observation.setInterpretationCode("N"); // Default to normal if no specific rule
-            }
+        for (Observation obs : observations) {
+            obs.setStatus("final");
+            obs.setIssuedDateTime(OffsetDateTime.now());
+            obs.setPerformer(pathologist); // Record the approving pathologist
         }
-        observation.setInterpretationSystem("http://terminology.hl7.org/CodeSystem/v3-ObservationInterpretation");
+
+        List<Observation> saved = observationRepository.saveAll(observations);
+
+        // Check if all observations for the associated encounters are finalized
+        observations.stream()
+                .map(o -> o.getServiceRequest().getEncounter())
+                .filter(java.util.Objects::nonNull)
+                .distinct()
+                .forEach(e -> promoteEncounterIfAllObservationsFinal(e, pathologist));
+
+        return saved.stream().map(this::mapToResponse).collect(Collectors.toList());
     }
 
-    /**
-     * Applies advanced interpretation rules from the test_interpretation_rules table.
-     * This would typically be more complex, involving evaluating a condition expression.
-     * @param observation The observation to interpret.
-     */
-    private void applyInterpretationRules(Observation observation) {
-        // This is a placeholder for a rule engine.
-        // A real implementation would:
-        // 1. Fetch rules for the observation.getAnalyte() from testInterpretationRuleRepository.
-        // 2. Evaluate the 'condition_expression' string against the actual observation values.
-        //    This might involve a scripting engine (like Nashorn/GraalVM JS, MVEL, or custom parser)
-        //    or pre-parsing conditions into executable Java code.
-        // 3. Set auto_comment, trigger reflex actions, and priority.
-
-        List<TestInterpretationRule> rules = testInterpretationRuleRepository.findByAnalyte(observation.getAnalyte());
-        for (TestInterpretationRule rule : rules) {
-            // Placeholder: simplified rule evaluation (e.g., if it's a critical rule)
-            if ("Critical".equalsIgnoreCase(rule.getPriority()) && "H".equals(observation.getInterpretationCode())) { // Example simple rule
-                System.out.println("CRITICAL ALERT: Rule matched for " + observation.getAnalyte().getAnalyteName() + ": " + rule.getAutoComment());
-                // In real app, send notification, change observation status to 'amended' for review, etc.
-            }
-            // Add other rule evaluation logic here
+    private void promoteEncounterIfAllObservationsFinal(Encounter encounter, Practitioner approver) {
+        List<ServiceRequest> srs = serviceRequestRepository.findByEncounter(encounter);
+        if (srs.isEmpty()) {
+            return;
         }
-    }
 
-
-    private String generateLocalObservationId() {
-        return "OBS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
-
-    private ObservationResponse mapToObservationResponse(Observation observation) {
-        ObservationResponse response = new ObservationResponse();
-        response.setId(String.format("obs-%s", observation.getId()));
-        response.setServiceRequestId(String.valueOf(observation.getServiceRequest().getId()));
-        response.setSpecimenId(String.format("spec-%s", observation.getSpecimen().getId()));
-        response.setTestName(observation.getAnalyte().getParentTest().getTestName());
-        response.setAnalyteId(String.format("an-%s", observation.getAnalyte().getId()));
-        response.setAnalyteName(observation.getAnalyte().getAnalyteName());
-        response.setValueNumeric(observation.getValueNumeric());
-        response.setValueString(observation.getValueString());
-        response.setUnit(Objects.nonNull(observation.getUnit()) ? observation.getUnit().getName() : "");
-
-        ReferenceRange referenceRange = observation.getReferenceRange();
-        if (Objects.nonNull(referenceRange)) {
-            if (Objects.nonNull(referenceRange.getTextRange())) {
-                response.setReferenceRange(referenceRange.getTextRange());
-            } else {
-                response.setReferenceRange(String.format("%s - %s", referenceRange.getLowValue(), referenceRange.getHighValue()));
+        boolean allRequestsReady = true;
+        for (ServiceRequest sr : srs) {
+            List<Observation> srObs = observationRepository.findByServiceRequestId(sr.getId());
+            if (srObs.isEmpty()) {
+                log.info("Encounter {} cannot be promoted to APPROVED: Service Request {} has no observations.", encounter.getId(), sr.getLocalOrderValue());
+                allRequestsReady = false;
+                break;
+            }
+            boolean srFinal = srObs.stream().allMatch(o -> "final".equalsIgnoreCase(o.getStatus()));
+            if (!srFinal) {
+                log.info("Encounter {} cannot be promoted to APPROVED: Service Request {} has non-final observations.", encounter.getId(), sr.getLocalOrderValue());
+                allRequestsReady = false;
+                break;
             }
         }
 
-        OrganizationAnalyteInterpretationRule interpretationRule =
-                organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(
-                        observation.getAnalyte().getId(),
-                        observation.getPatient().getOrganization().getId()
-                );
-        if (Objects.nonNull(interpretationRule)) {
-            response.setInterpretation(interpretationRule.getAutoComment());
+        if (allRequestsReady) {
+            log.info("All observations final for encounter {}. Promoting to APPROVED.", encounter.getId());
+            encounter.setStatus(EncounterStatus.APPROVED.getCode());
+            encounter.setApprovingPractitioner(approver);
+            encounterRepository.save(encounter);
         }
-
-        response.setEffectiveDateTime(observation.getEffectiveDateTime());
-        return response;
     }
 
-    // TODO: Add methods for retrieving observations, searching, etc.
-    @Transactional(readOnly = true)
+    public Map<String, List<ObservationHistoryPointResponse>> getHistoricalObservationSeriesByServiceRequestId(Integer serviceRequestId, int limit) {
+        ServiceRequest sr = serviceRequestRepository.findById(serviceRequestId)
+                .orElseThrow(() -> new IllegalArgumentException("Service Request not found"));
+
+        List<Observation> currentObs = observationRepository.findByServiceRequestId(serviceRequestId);
+        List<Integer> analyteIds = currentObs.stream().map(o -> o.getAnalyte().getId()).distinct().collect(Collectors.toList());
+
+        if (analyteIds.isEmpty()) return new HashMap<>();
+
+        List<Observation> historical = observationRepository.findHistoricalByAnalyteIdsAndPatientAndOrganization(
+                analyteIds,
+                sr.getPatient().getId(),
+                sr.getPatient().getOrganization().getId(),
+                serviceRequestId
+        );
+
+        Map<String, List<ObservationHistoryPointResponse>> result = new HashMap<>();
+        
+        // Include current values if they are numeric
+        for (Observation o : currentObs) {
+            if (o.getValueNumeric() != null) {
+                String key = o.getAnalyte().getId().toString();
+                result.computeIfAbsent(key, k -> new ArrayList<>())
+                      .add(new ObservationHistoryPointResponse(
+                              o.getValueNumeric().doubleValue(),
+                              o.getEffectiveDateTime().toString(),
+                              o.getId()
+                      ));
+            }
+        }
+
+        // Group historical values
+        for (Observation o : historical) {
+            String key = o.getAnalyte().getId().toString();
+            List<ObservationHistoryPointResponse> series = result.get(key);
+            if (series != null && series.size() < limit) {
+                series.add(new ObservationHistoryPointResponse(
+                        o.getValueNumeric().doubleValue(),
+                        o.getEffectiveDateTime().toString(),
+                        o.getId()
+                ));
+            }
+        }
+
+        return result;
+    }
+
     public List<ObservationResponse> getObservationsByServiceRequestId(Integer serviceRequestId) {
-
-        ServiceRequest serviceRequest = serviceRequestRepository.findById(serviceRequestId)
-                .orElseThrow(() -> new RuntimeException("Service Request not found with ID: " + serviceRequestId));
-
-        // --- Multi-tenancy check (internal) ---
-        Integer organizationId = serviceRequest.getPatient().getOrganization().getId();
-        if (!securityService.isUserInOrganization(organizationId)) {
-            throw new AccessDeniedException("User not authorized to view observations for organization ID: " + organizationId);
-        }
-        // --- End multi-tenancy check ---
-        return observationRepository.findByServiceRequestId(serviceRequestId)
-                .stream()
-                .map(this::mapToObservationResponse)
+        return observationRepository.findByServiceRequestId(serviceRequestId).stream()
+                .map(this::mapToResponse)
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
-    public ObservationResponse getObservationById(Integer observationId) {
-        Observation observation = observationRepository.findById(observationId)
-                .orElseThrow(() -> new RuntimeException("Observation not found with ID: " + observationId));
+    public ObservationResponse getObservationById(Integer id) {
+        return observationRepository.findById(id)
+                .map(this::mapToResponse)
+                .orElseThrow(() -> new IllegalArgumentException("Observation not found"));
+    }
 
-        // --- Multi-tenancy check (internal) ---
-        Integer organizationId = observation.getPatient().getOrganization().getId();
-        if (!securityService.isUserInOrganization(organizationId)) {
-            throw new AccessDeniedException("User not authorized to view observation for organization ID: " + organizationId);
+    private void applyReferenceRangeInterpretation(Observation obs) {
+        if (obs.getValueNumeric() == null) return;
+
+        List<ReferenceRange> ranges = referenceRangeRepository.findByAnalyteId(obs.getAnalyte().getId());
+        for (ReferenceRange range : ranges) {
+            // Basic matching without gender/age for now
+            if (range.getLowValue() != null && obs.getValueNumeric().compareTo(range.getLowValue()) < 0) {
+                obs.setInterpretationCode("L");
+                obs.setReferenceRange(range);
+                return;
+            }
+            if (range.getHighValue() != null && obs.getValueNumeric().compareTo(range.getHighValue()) > 0) {
+                obs.setInterpretationCode("H");
+                obs.setReferenceRange(range);
+                return;
+            }
+            if (range.getLowValue() != null && range.getHighValue() != null) {
+                obs.setInterpretationCode("N");
+                obs.setReferenceRange(range);
+                return;
+            }
         }
-        // --- End multi-tenancy check ---
-        return mapToObservationResponse(observation);
+    }
+
+    private ObservationResponse mapToResponse(Observation obs) {
+        ObservationResponse resp = new ObservationResponse();
+        resp.setId(obs.getId().toString());
+        resp.setServiceRequestId(obs.getServiceRequest().getId().toString());
+        if (obs.getSpecimen() != null) {
+            resp.setSpecimenId(obs.getSpecimen().getId().toString());
+        }
+        resp.setAnalyteId(obs.getAnalyte().getId().toString());
+        resp.setAnalyteName(obs.getAnalyte().getAnalyteName());
+        resp.setTestName(obs.getAnalyte().getParentTest().getTestName());
+        resp.setValueNumeric(obs.getValueNumeric());
+        resp.setValueString(obs.getValueString());
+        if (obs.getUnit() != null) {
+            resp.setUnit(obs.getUnit().getName());
+        }
+        if (obs.getReferenceRange() != null) {
+            resp.setReferenceRange(obs.getReferenceRange().getTextRange());
+        }
+        resp.setInterpretation(obs.getInterpretationCode());
+        resp.setComments(obs.getComments());
+        resp.setEffectiveDateTime(obs.getEffectiveDateTime());
+        return resp;
     }
 }

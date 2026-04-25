@@ -6,4 +6,5 @@ import org.springframework.stereotype.Repository;
 
 @Repository
 public interface PractitionerRepository extends JpaRepository<Practitioner, Integer> {
+	boolean existsByLocalIdentifierValue(String localIdentifierValue);
 }

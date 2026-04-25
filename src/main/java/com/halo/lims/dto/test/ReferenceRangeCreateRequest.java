@@ -5,11 +5,8 @@ import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
-
 import java.math.BigDecimal;
 
-@Data
 public class ReferenceRangeCreateRequest {
     @NotNull(message = "Analyte ID is required")
     @Min(value = 1, message = "Analyte ID must be positive")
@@ -35,4 +32,31 @@ public class ReferenceRangeCreateRequest {
 
     @Size(max = 50)
     private String interpretationCode; // e.g., "N", "H", "L"
+
+    public ReferenceRangeCreateRequest() {}
+
+    // Getters and Setters
+    public Integer getAnalyteId() { return analyteId; }
+    public void setAnalyteId(Integer analyteId) { this.analyteId = analyteId; }
+
+    public String getGender() { return gender; }
+    public void setGender(String gender) { this.gender = gender; }
+
+    public Integer getMinAgeYears() { return minAgeYears; }
+    public void setMinAgeYears(Integer minAgeYears) { this.minAgeYears = minAgeYears; }
+
+    public Integer getMaxAgeYears() { return maxAgeYears; }
+    public void setMaxAgeYears(Integer maxAgeYears) { this.maxAgeYears = maxAgeYears; }
+
+    public BigDecimal getLowValue() { return lowValue; }
+    public void setLowValue(BigDecimal lowValue) { this.lowValue = lowValue; }
+
+    public BigDecimal getHighValue() { return highValue; }
+    public void setHighValue(BigDecimal highValue) { this.highValue = highValue; }
+
+    public String getTextRange() { return textRange; }
+    public void setTextRange(String textRange) { this.textRange = textRange; }
+
+    public String getInterpretationCode() { return interpretationCode; }
+    public void setInterpretationCode(String interpretationCode) { this.interpretationCode = interpretationCode; }
 }

@@ -5,7 +5,6 @@ import com.halo.lims.dto.UpsertOrgAnalyteRequestDto;
 import com.halo.lims.service.OrganizationAnalyteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.ResponseEntity;
@@ -21,12 +20,12 @@ public class OrganizationAnalyteControllerTest {
     @Mock
     private OrganizationAnalyteService organizationAnalyteService;
 
-    @InjectMocks
     private OrganizationAnalyteController organizationAnalyteController;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
+        organizationAnalyteController = new OrganizationAnalyteController(organizationAnalyteService);
     }
 
     @Test
@@ -42,7 +41,7 @@ public class OrganizationAnalyteControllerTest {
         ResponseEntity<List<AnalyteResponseDto>> response = organizationAnalyteController.getAnalytesForOrganization(organizationId);
 
         // Then
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         assertEquals(1, response.getBody().size());
         assertEquals("Test Analyte", response.getBody().get(0).getName());
     }
@@ -61,6 +60,6 @@ public class OrganizationAnalyteControllerTest {
         ResponseEntity<Void> response = organizationAnalyteController.upsertAnalyteForOrganization(organizationId, request);
 
         // Then
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
     }
 }

@@ -13,11 +13,9 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "service_request_items")
-@Data
-@NoArgsConstructor
-@AllArgsConstructor
-@Builder
 @IdClass(ServiceRequestItemId.class)
+@Builder
+@AllArgsConstructor
 public class ServiceRequestItem {
     @Id
     @ManyToOne(fetch = FetchType.LAZY)
@@ -43,5 +41,22 @@ public class ServiceRequestItem {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    public ServiceRequestItem() {}
+
+    public ServiceRequest getServiceRequest() { return serviceRequest; }
+    public void setServiceRequest(ServiceRequest serviceRequest) { this.serviceRequest = serviceRequest; }
+
+    public Test getTest() { return test; }
+    public void setTest(Test test) { this.test = test; }
+
+    public TestPanel getPanel() { return panel; }
+    public void setPanel(TestPanel panel) { this.panel = panel; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
+
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
 }
 

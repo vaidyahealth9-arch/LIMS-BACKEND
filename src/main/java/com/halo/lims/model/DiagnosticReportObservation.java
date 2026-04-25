@@ -2,7 +2,6 @@ package com.halo.lims.model;
 
 import com.halo.lims.model.compositeKeys.DiagnosticReportObservationId;
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -13,7 +12,6 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "diagnostic_report_observations")
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -36,5 +34,17 @@ public class DiagnosticReportObservation {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
-}
 
+    // Getters and Setters
+    public DiagnosticReport getDiagnosticReport() { return diagnosticReport; }
+    public void setDiagnosticReport(DiagnosticReport diagnosticReport) { this.diagnosticReport = diagnosticReport; }
+
+    public Observation getObservation() { return observation; }
+    public void setObservation(Observation observation) { this.observation = observation; }
+
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
+}

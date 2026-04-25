@@ -100,6 +100,13 @@ public class BillingController {
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
+    @PutMapping("/sync/{encounterId}")
+    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.canAccessEncounter(#encounterId)")
+    public ResponseEntity<BillResponse> syncBillWithEncounter(@PathVariable Integer encounterId) {
+        BillResponse response = billingService.syncBillWithEncounter(encounterId);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
     @GetMapping("/encounter/{encounterId}/billable-details")
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.canAccessEncounter(#encounterId)")
     public ResponseEntity<BillableDetailsResponse> getBillableDetailsForEncounter(@PathVariable Integer encounterId) {

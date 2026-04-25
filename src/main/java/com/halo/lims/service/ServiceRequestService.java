@@ -19,6 +19,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import lombok.extern.slf4j.Slf4j;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
@@ -28,6 +29,7 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
+@Slf4j
 public class ServiceRequestService {
 
     private final ServiceRequestRepository serviceRequestRepository;
@@ -171,9 +173,17 @@ public class ServiceRequestService {
         }
         // --- End multi-tenancy check ---
 
-        // Prevent modification if already completed/cancelled
-        if ("completed".equals(serviceRequest.getStatus()) || "cancelled".equals(serviceRequest.getStatus())) {
-            throw new IllegalStateException("Cannot update a completed or cancelled service request.");
+        // Prevent modification if cancelled
+        if ("cancelled".equals(serviceRequest.getStatus())) {
+            throw new IllegalStateException("Cannot update a cancelled service request.");
+        }
+
+        // If completed but adding tests, move back to active
+        if ("completed".equals(serviceRequest.getStatus()) && request.getTests() != null && !request.getTests().isEmpty()) {
+            serviceRequest.setStatus("active");
+            log.info("ServiceRequest {} moved back to 'active' status because new tests are being added.", serviceRequest.getId());
+        } else if ("completed".equals(serviceRequest.getStatus())) {
+            throw new IllegalStateException("Cannot update a completed service request unless adding new tests.");
         }
 
         if (request.getRequesterId() != null) {
@@ -232,6 +242,18 @@ public class ServiceRequestService {
                     }
                 }
                 serviceRequestItemRepository.saveAll(newItems);
+
+                // If the encounter was already APPROVED or COMPLETED, move it back to IN_PROGRESS
+                // so the technician knows there is new work to do.
+                Encounter encounter = serviceRequest.getEncounter();
+                if (encounter != null) {
+                    String encounterStatus = encounter.getStatus();
+                    if ("approved".equalsIgnoreCase(encounterStatus) || "completed".equalsIgnoreCase(encounterStatus)) {
+                        encounter.setStatus("in-progress");
+                        encounterRepository.save(encounter);
+                        log.info("Encounter {} moved back to 'in-progress' because new tests were added to ServiceRequest {}.", encounter.getId(), serviceRequest.getId());
+                    }
+                }
             }
         }
 
@@ -274,6 +296,12 @@ public class ServiceRequestService {
     @Transactional(readOnly = true)
     public PagedResponse<ServiceRequestResponse> getPendingServiceRequests(
             Integer orgId, LocalDate startDate, LocalDate endDate, int page, int size) {
+        return getPendingServiceRequests(orgId, startDate, endDate, false, page, size);
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<ServiceRequestResponse> getPendingServiceRequests(
+            Integer orgId, LocalDate startDate, LocalDate endDate, boolean includeClosed, int page, int size) {
 
         // --- Multi-tenancy check ---
         if (orgId != null && !securityService.isUserInOrganization(orgId)) {
@@ -289,8 +317,9 @@ public class ServiceRequestService {
         Specification<ServiceRequest> spec = (root, query, cb) -> {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
-            // Always filter by "active" status
-            predicates.add(cb.equal(root.get("status"), ServiceRequestStatus.ACTIVE.getCode()));
+            if (!includeClosed) {
+                predicates.add(cb.equal(root.get("status"), ServiceRequestStatus.ACTIVE.getCode()));
+            }
 
             // Filter by organization
             if (orgId != null) {

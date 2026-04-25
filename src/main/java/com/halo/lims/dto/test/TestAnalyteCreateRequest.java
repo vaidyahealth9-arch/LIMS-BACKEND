@@ -5,9 +5,7 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
 
-@Data
 public class TestAnalyteCreateRequest {
     @NotBlank(message = "Analyte code is required")
     @Size(max = 100)
@@ -40,4 +38,40 @@ public class TestAnalyteCreateRequest {
     private Boolean isDerived = false;
 
     private String formula;
+
+    public TestAnalyteCreateRequest() {}
+
+    // Getters and Setters
+    public String getAnalyteCode() { return analyteCode; }
+    public void setAnalyteCode(String analyteCode) { this.analyteCode = analyteCode; }
+
+    public String getAnalyteName() { return analyteName; }
+    public void setAnalyteName(String analyteName) { this.analyteName = analyteName; }
+
+    public Integer getParentTestId() { return parentTestId; }
+    public void setParentTestId(Integer parentTestId) { this.parentTestId = parentTestId; }
+
+    public String getLoincCode() { return loincCode; }
+    public void setLoincCode(String loincCode) { this.loincCode = loincCode; }
+
+    public String getLoincSystem() { return loincSystem; }
+    public void setLoincSystem(String loincSystem) { this.loincSystem = loincSystem; }
+
+    public Integer getUnitId() { return unitId; }
+    public void setUnitId(Integer unitId) { this.unitId = unitId; }
+
+    public String getResultType() { return resultType; }
+    public void setResultType(String resultType) { this.resultType = resultType; }
+
+    public Integer getDecimalPlaces() { return decimalPlaces; }
+    public void setDecimalPlaces(Integer decimalPlaces) { this.decimalPlaces = decimalPlaces; }
+
+    public String getBiologicalRefInterval() { return biologicalRefInterval; }
+    public void setBiologicalRefInterval(String biologicalRefInterval) { this.biologicalRefInterval = biologicalRefInterval; }
+
+    public Boolean getIsDerived() { return isDerived; }
+    public void setIsDerived(Boolean isDerived) { this.isDerived = isDerived; }
+
+    public String getFormula() { return formula; }
+    public void setFormula(String formula) { this.formula = formula; }
 }

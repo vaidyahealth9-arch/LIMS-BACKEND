@@ -44,14 +44,22 @@ public class DashboardService {
         this.securityService = securityService;
     }
 
-    public DashboardResponse getDashboardData() {
+    public DashboardResponse getDashboardData(int requestedDays) {
+        int days = normalizeDays(requestedDays);
         DashboardResponse response = new DashboardResponse();
         response.setNewPatientsToday(getNewPatientsToday());
         response.setRevenueToday(getRevenueToday());
         response.setPendingServiceRequests(getPendingServiceRequests());
-        response.setWeeklyRevenue(getWeeklyRevenue());
+        response.setWeeklyRevenue(getRevenueByDays(days));
         response.setAverageTat(getWorkTat());
         return response;
+    }
+
+    private int normalizeDays(int requestedDays) {
+        if (requestedDays == 30 || requestedDays == 90) {
+            return requestedDays;
+        }
+        return 7;
     }
 
     private long getNewPatientsToday() {
@@ -86,13 +94,13 @@ public class DashboardService {
         return serviceRequestRepository.countByPatient_OrganizationIdAndStatus(organizationId, ServiceRequestStatus.ACTIVE.getCode());
     }
 
-    private List<Map<String, Object>> getWeeklyRevenue() {
+    private List<Map<String, Object>> getRevenueByDays(int days) {
         User currentUser = getCurrentUser();
         if (currentUser == null || currentUser.getOrganization() == null) {
             return Collections.emptyList();
         }
         Integer organizationId = currentUser.getOrganization().getId();
-        OffsetDateTime startDate = LocalDate.now().minus(6, ChronoUnit.DAYS).atStartOfDay().atOffset(ZoneOffset.UTC);
+        OffsetDateTime startDate = LocalDate.now().minus(days - 1L, ChronoUnit.DAYS).atStartOfDay().atOffset(ZoneOffset.UTC);
 
         List<Object[]> results = billRepository.findWeeklyRevenueByOrganization(organizationId, startDate);
         Map<LocalDate, BigDecimal> revenueByDate = new HashMap<>();
@@ -100,17 +108,17 @@ public class DashboardService {
             revenueByDate.put(((java.sql.Date) result[0]).toLocalDate(), (BigDecimal) result[1]);
         }
 
-        List<Map<String, Object>> weeklyRevenue = new ArrayList<>();
-        for (int i = 0; i < 7; i++) {
+        List<Map<String, Object>> periodRevenue = new ArrayList<>();
+        for (int i = days - 1; i >= 0; i--) {
             LocalDate date = LocalDate.now().minus(i, ChronoUnit.DAYS);
             BigDecimal revenue = revenueByDate.getOrDefault(date, BigDecimal.ZERO);
             Map<String, Object> dayRevenue = new HashMap<>();
             dayRevenue.put("date", date);
             dayRevenue.put("revenue", revenue);
-            weeklyRevenue.add(dayRevenue);
+            periodRevenue.add(dayRevenue);
         }
 
-        return weeklyRevenue;
+        return periodRevenue;
     }
 
     private double getWorkTat() {

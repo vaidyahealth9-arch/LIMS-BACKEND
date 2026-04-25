@@ -2,9 +2,7 @@ package com.halo.lims.dto.unit;
 
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
-import lombok.Data;
 
-@Data
 public class UnitCreateRequest {
     private Integer organizationId;
 
@@ -16,5 +14,20 @@ public class UnitCreateRequest {
     @Size(max = 50)
     private String ucumCode;
 
-    private String description; // TEXT field, no @Size max
+    private String description; 
+
+    public UnitCreateRequest() {}
+
+    // Getters and Setters
+    public Integer getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Integer organizationId) { this.organizationId = organizationId; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getUcumCode() { return ucumCode; }
+    public void setUcumCode(String ucumCode) { this.ucumCode = ucumCode; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

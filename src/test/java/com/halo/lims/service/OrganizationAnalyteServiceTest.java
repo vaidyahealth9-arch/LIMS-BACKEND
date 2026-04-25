@@ -6,6 +6,7 @@ import com.halo.lims.model.Organization;
 import com.halo.lims.model.OrganizationTestAnalyte;
 import com.halo.lims.repository.OrganizationRepository;
 import com.halo.lims.repository.OrganizationTestAnalyteRepository;
+import com.halo.lims.repository.ReferenceRangeRepository;
 import com.halo.lims.repository.TestAnalyteRepository;
 import com.halo.lims.service.impl.OrganizationAnalyteServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +34,9 @@ public class OrganizationAnalyteServiceTest {
     @Mock
     private OrganizationRepository organizationRepository;
 
+    @Mock
+    private ReferenceRangeRepository referenceRangeRepository;
+
     @InjectMocks
     private OrganizationAnalyteServiceImpl organizationAnalyteService;
 
@@ -59,6 +63,7 @@ public class OrganizationAnalyteServiceTest {
 
         when(testAnalyteRepository.findAll()).thenReturn(Collections.singletonList(testAnalyte));
         when(organizationTestAnalyteRepository.findByOrganizationId(organizationId)).thenReturn(Collections.emptyList());
+        when(referenceRangeRepository.findAll()).thenReturn(Collections.emptyList());
 
         // When
         List<AnalyteResponseDto> result = organizationAnalyteService.getAnalytesForOrganization(organizationId);

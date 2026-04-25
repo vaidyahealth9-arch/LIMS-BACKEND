@@ -51,7 +51,7 @@ public class OrganizationTestControllerTest {
 
         ResponseEntity<OrganizationTestResponse> response = organizationTestController.addOrUpdateOrganizationTest(1, organizationTestRequest);
 
-        assertEquals(201, response.getStatusCodeValue());
+        assertEquals(201, response.getStatusCode().value());
         assertEquals(1, response.getBody().getTestId());
         assertEquals(true, response.getBody().getIsEnabled());
         assertEquals(new BigDecimal("100.00"), response.getBody().getPrice());

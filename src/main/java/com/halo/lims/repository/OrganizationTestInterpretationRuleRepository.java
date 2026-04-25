@@ -11,4 +11,6 @@ import java.util.List;
 @Repository
 public interface OrganizationTestInterpretationRuleRepository extends JpaRepository<OrganizationTestInterpretationRule, Integer> {
     List<OrganizationTestInterpretationRule> findByOrganizationTestOrganizationAndOrganizationTestTest(Organization organization, Test test);
+
+    List<OrganizationTestInterpretationRule> findByOrganizationTestOrganizationAndOrganizationTestTestIn(Organization organization, List<Test> tests);
 }

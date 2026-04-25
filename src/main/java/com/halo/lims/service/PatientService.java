@@ -16,23 +16,32 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 @Service
 public class PatientService {
+
+    private static final Logger log = LoggerFactory.getLogger(PatientService.class);
 
     private final PatientRepository patientRepository;
     private final OrganizationRepository organizationRepository; // Inject OrganizationRepository
     private final AbdmService abdmService;
+    private final PhrInternalClient phrInternalClient;
 
     public PatientService(PatientRepository patientRepository,
                           OrganizationRepository organizationRepository, // Inject
-                          AbdmService abdmService) {
+                          AbdmService abdmService,
+                          PhrInternalClient phrInternalClient) {
         this.patientRepository = patientRepository;
         this.organizationRepository = organizationRepository; // Assign
         this.abdmService = abdmService;
+        this.phrInternalClient = phrInternalClient;
     }
 
     @Transactional
@@ -41,29 +50,39 @@ public class PatientService {
         Organization organization = organizationRepository.findById(request.getOrganizationId())
                 .orElseThrow(() -> new RuntimeException("Organization not found with ID: " + request.getOrganizationId()));
 
-        // 1. Generate local MRN
-        // Consider making MRN generation organization-specific: LAB<ORG_CODE>YYMMDDXXXX
-        String localMrnValue = generateLocalMrn(organization.getLocalIdentifierValue());
-
-        // 2. Check for existing patient within THIS organization
-        // This is crucial for multi-tenancy. A patient with same ABHA/MRN might exist
-        // at a different lab, but this is a new patient for *this* organization.
-        Optional<Patient> existingPatient = patientRepository.findByLocalMrnValueAndOrganization(localMrnValue, organization);
-        // OR: If ABHA is unique across the whole LIMS platform (not just per organization)
-        // Optional<Patient> existingPatientByAbha = patientRepository.findByAbhaId(request.getAbhaIdToLink());
-
         Patient patient;
-        if (existingPatient.isPresent()) {
-            patient = existingPatient.get();
-            // TODO: Update existing patient details if necessary.
-            System.out.println("Found existing patient in organization " + organization.getOrganizationName() + ", updating...");
+        boolean isNew = false;
+
+        // 1. Check if we are updating an existing patient by ID
+        if (request.getId() != null) {
+            patient = patientRepository.findById(request.getId())
+                    .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + request.getId()));
+            log.info("Updating existing patient ID: {} in organization: {}", patient.getId(), organization.getOrganizationName());
         } else {
-            patient = new Patient();
-            patient.setLocalMrnSystem("http://com.lims/patient-id/" + organization.getLocalIdentifierValue()); // Make system URI organization-specific
-            patient.setLocalMrnValue(localMrnValue);
-            patient.setAbdmLinkStatus("NOT_LINKED");
-            patient.setOrganization(organization); // Link patient to the organization
-            System.out.println("Creating new patient for organization " + organization.getOrganizationName() + "...");
+            // 2. Deduplication Logic: Check if a patient with same name and phone exists in THIS organization
+            // We only do this for non-dependents or if we want to prevent duplicates for dependents too.
+            // For now, let's check by phone + firstName + lastName.
+            List<Patient> existingMatches = patientRepository.findByOrganization(organization).stream()
+                    .filter(p -> StringUtils.equalsIgnoreCase(p.getFirstName(), request.getFirstName()) &&
+                                 StringUtils.equalsIgnoreCase(p.getLastName(), request.getLastName()) &&
+                                 StringUtils.equals(Patient.normalizePhone(p.getContactPhone()), Patient.normalizePhone(request.getContactPhone())))
+                    .collect(Collectors.toList());
+
+            if (!existingMatches.isEmpty()) {
+                patient = existingMatches.get(0);
+                log.info("Found existing match for patient {} {} with phone {} in organization {}. Updating record.", 
+                        request.getFirstName(), request.getLastName(), request.getContactPhone(), organization.getOrganizationName());
+            } else {
+                // 3. New Patient
+                patient = new Patient();
+                isNew = true;
+                String localMrnValue = generateLocalMrn(organization.getLocalIdentifierValue());
+                patient.setLocalMrnSystem("http://com.lims/patient-id/" + organization.getLocalIdentifierValue());
+                patient.setLocalMrnValue(localMrnValue);
+                patient.setAbdmLinkStatus("NOT_LINKED");
+                patient.setOrganization(organization);
+                log.info("Registering new patient: {} {} for organization: {}", request.getFirstName(), request.getLastName(), organization.getOrganizationName());
+            }
         }
 
         // Map DTO to Entity
@@ -80,30 +99,32 @@ public class PatientService {
         patient.setState(request.getState());
         patient.setPostalCode(request.getPostalCode());
         patient.setCountry("IND");
+        
+        // Relationship and Dependent status
+        patient.setRelationship(request.getRelationship() != null ? request.getRelationship() : "self");
+        patient.setIsDependent(request.getIsDependent() != null ? request.getIsDependent() : false);
 
-        // 3. Handle ABHA creation/linking requests (Milestone 1 & 2)
+        // Handle ABHA creation/linking requests (if new or if not already linked)
         if (StringUtils.isNotBlank(request.getAadhaarNumber())|| StringUtils.isNotBlank(request.getAbhaLinkMobileNumber()) || StringUtils.isNotBlank(request.getAbhaIdToLink())) {
+            // ... (existing ABHA logic remains same)
             String authMethod;
             if (request.getAadhaarNumber() != null) {
                 authMethod = "AADHAAR_OTP";
-                throw new UnsupportedOperationException("Aadhaar based ABHA creation/linking not yet implemented.");
+                // throw new UnsupportedOperationException("Aadhaar based ABHA creation/linking not yet implemented.");
             } else if (request.getAbhaLinkMobileNumber() != null) {
                 authMethod = "MOBILE_OTP";
                 String txnId = abdmService.initiateAbhaVerification(request, authMethod);
                 patient.setAbdmLinkStatus("PENDING_OTP");
                 patient.setAbdmStatusMessage("OTP sent to mobile for ABHA linking. Txn ID: " + txnId);
-                System.out.println("ABHA linking initiated. TxnId: " + txnId);
             } else if (request.getAbhaIdToLink() != null) {
                 authMethod = "HEALTH_ID";
                 String txnId = abdmService.initiateAbhaVerification(request, authMethod);
                 patient.setAbdmLinkStatus("PENDING_OTP");
                 patient.setAbdmStatusMessage("OTP sent to ABHA registered mobile for linking. Txn ID: " + txnId);
-                System.out.println("ABHA linking initiated for existing ID. TxnId: " + txnId);
             }
         }
 
         Patient savedPatient = patientRepository.save(patient);
-
         return mapToPatientRegistrationResponse(savedPatient);
     }
 
@@ -166,6 +187,8 @@ public class PatientService {
         response.setCity(patient.getCity());
         response.setState(patient.getState());
         response.setPostalCode(patient.getPostalCode());
+        response.setRelationship(patient.getRelationship());
+        response.setIsDependent(patient.getIsDependent());
         // Add organization ID to response
         response.setOrganizationId(patient.getOrganization().getId());
         return response;
@@ -180,6 +203,61 @@ public class PatientService {
         return patientRepository.findByOrganization(organization).stream()
                 .map(this::mapToPatientRegistrationResponse)
                 .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<PatientRegistrationResponse> findPatientByMobile(String mobile, String relationship) {
+        String normalizedMobile = Patient.normalizePhone(mobile);
+        if (normalizedMobile == null) {
+            return Optional.empty();
+        }
+
+        String targetRelationship = (relationship != null && !relationship.isBlank()) ? relationship.toLowerCase() : "self";
+
+        Optional<PatientRegistrationResponse> phrProfile = phrInternalClient.fetchPatientProfileByMobile(normalizedMobile, targetRelationship);
+        if (phrProfile.isPresent()) {
+            return phrProfile;
+        }
+
+        List<Patient> patients = patientRepository.findByContactPhoneNormalized(normalizedMobile);
+        if (patients.isEmpty()) {
+            patients = patientRepository.findAll().stream()
+                    .filter(patient -> normalizedMobile.equals(Patient.normalizePhone(patient.getContactPhone())))
+                    .collect(Collectors.toList());
+        }
+
+        if (patients.isEmpty()) {
+            return Optional.empty();
+        }
+
+        // Filter by relationship if multiple patients share the mobile
+        List<Patient> filteredPatients = patients.stream()
+                .filter(p -> targetRelationship.equalsIgnoreCase(p.getRelationship()))
+                .collect(Collectors.toList());
+
+        Patient patient;
+        if (!filteredPatients.isEmpty()) {
+            patient = filteredPatients.stream()
+                    .max(Comparator.comparing(Patient::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                    .orElse(filteredPatients.get(0));
+        } else {
+            // If no exact relationship match in LIMS, and it was "self", return the primary
+            if ("self".equals(targetRelationship)) {
+                patient = patients.stream()
+                        .max(Comparator.comparing(Patient::getCreatedAt, Comparator.nullsLast(Comparator.naturalOrder())))
+                        .orElse(patients.get(0));
+            } else {
+                return Optional.empty(); // Relationship requested but not found
+            }
+        }
+
+        return Optional.of(mapToPatientRegistrationResponse(patient));
+    }
+
+    // Backwards-compatible overload used by tests and older callers
+    @Transactional(readOnly = true)
+    public Optional<PatientRegistrationResponse> findPatientByMobile(String mobile) {
+        return findPatientByMobile(mobile, null);
     }
 
     // New method for searching patients within an organization

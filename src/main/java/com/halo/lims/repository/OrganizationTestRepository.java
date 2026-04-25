@@ -16,6 +16,7 @@ public interface OrganizationTestRepository extends JpaRepository<OrganizationTe
     List<OrganizationTest> findByOrganization_Id(Integer organizationId);
     List<OrganizationTest> findByOrganization_IdAndIsEnabled(Integer organizationId, Boolean isEnabled);
     Optional<OrganizationTest> findByOrganization_IdAndTest_Id(Integer organizationId, Integer testId);
+    List<OrganizationTest> findByOrganization_IdAndTest_IdIn(Integer organizationId, List<Integer> testIds);
     boolean existsByOrganization_IdAndTest_IdAndIsEnabled(Integer organizationId, Integer testId, Boolean isEnabled);
 
     boolean existsByTest_Id(Integer id);

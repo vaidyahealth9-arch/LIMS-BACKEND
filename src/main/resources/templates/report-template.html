@@ -1,0 +1,486 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <title th:text="${report.reportTitle}">Diagnostic Report</title>
+  
+  <style th:utext="'@page { size: A4; margin-top: ' + ${report.branding.pageMarginTopMm} + 'mm; margin-bottom: ' + ${report.branding.pageMarginBottomMm} + 'mm; margin-left: 0; margin-right: 0; @top-center { content: element(pageHeader); } @bottom-center { content: element(pageFooter); } }'"></style>
+
+  <style>
+    /* RESET and BASE */
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+      font-size: 11px;
+      color: #1e293b;
+      background: #ffffff;
+      line-height: 1.4;
+    }
+    
+    /* PAGE HEADER/FOOTER */
+    .page-header { position: running(pageHeader); width: 100%; text-align: center; }
+    .page-footer { position: running(pageFooter); width: 100%; text-align: center; }
+    .page-header img, .page-footer img { width: 100%; height: 100%; object-fit: fill; display: block; }
+    
+    /* UTILS */
+    .tbl { display: table; width: 100%; }
+    .tbl-cell { display: table-cell; vertical-align: top; }
+    .tbl-mid { display: table-cell; vertical-align: middle; }
+    .tbl-bot { display: table-cell; vertical-align: bottom; }
+    
+    .fw4 { font-weight: 400; }
+    .fw6 { font-weight: 600; }
+    .fw8 { font-weight: 800; }
+    .text-xxs { font-size: 8px; }
+    .text-xs { font-size: 9px; }
+    .text-sm { font-size: 10px; }
+    .text-md { font-size: 12px; }
+    .text-lg { font-size: 14px; }
+    .text-xl { font-size: 18px; }
+    .text-2xl { font-size: 22px; }
+
+    .uppercase { text-transform: uppercase; letter-spacing: 0.05em; }
+    .tracking-wide { letter-spacing: 0.1em; }
+    
+    /* TEXT COLORS */
+    .c-slate-900 { color: #0f172a; }
+    .c-slate-700 { color: #334155; }
+    .c-slate-500 { color: #64748b; }
+    .c-slate-400 { color: #94a3b8; }
+    .c-blue-600 { color: #2563eb; }
+    .c-red-600 { color: #dc2626; }
+    .c-green-600 { color: #16a34a; }
+    .c-orange-500 { color: #f97316; }
+    
+    /* BG COLORS */
+    .bg-slate-50 { background-color: #f8fafc; }
+    .bg-slate-100 { background-color: #f1f5f9; }
+    .bg-blue-50 { background-color: #eff6ff; }
+    .bg-red-50 { background-color: #fef2f2; }
+    .bg-green-50 { background-color: #f0fdf4; }
+    .bg-orange-50 { background-color: #fff7ed; }
+
+    /* LAYOUT SPACING */
+    .mt-1 { margin-top: 4px; }
+    .mt-2 { margin-top: 8px; }
+    .mt-3 { margin-top: 12px; }
+    .mt-4 { margin-top: 16px; }
+    .mt-6 { margin-top: 24px; }
+    .mb-1 { margin-bottom: 4px; }
+    .mb-2 { margin-bottom: 8px; }
+    .mb-3 { margin-bottom: 12px; }
+    .mb-4 { margin-bottom: 16px; }
+    
+    .p-2 { padding: 8px; }
+    .p-3 { padding: 12px; }
+    .p-4 { padding: 16px; }
+    
+    .border-b { border-bottom: 1px solid #e2e8f0; }
+    .border-t { border-top: 1px solid #e2e8f0; }
+    .rounded { border-radius: 6px; }
+    .rounded-lg { border-radius: 12px; }
+    
+    /* PAGE BREAKS */
+    .page-break-before { page-break-before: always; }
+    .avoid-break { page-break-inside: avoid; break-inside: avoid; }
+
+    /* REPORT SPECIFIC CLASSES */
+    .report-body { padding: 0; margin-left: 10mm; margin-right: 10mm; }
+
+    /* PATIENT DETAILS HEADER */
+    .patient-container {
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      padding: 12px;
+      margin-bottom: 16px;
+      background: #f8fafc;
+    }
+    .patient-smart .patient-container {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05); /* Works in openhtmltopdf */
+    }
+    .patient-grid {
+      display: table;
+      width: 100%;
+    }
+    .patient-col {
+      display: table-cell;
+      vertical-align: top;
+      width: 25%;
+      padding-right: 8px;
+    }
+    .patient-col.last { padding-right: 0; }
+    .patient-label {
+      font-size: 8px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 2px;
+    }
+    .patient-val {
+      font-size: 11px;
+      font-weight: 700;
+      color: #0f172a;
+      margin-bottom: 6px;
+    }
+
+    /* RESULT ANALYTICS (SMART ONLY) */
+    .analytics-section { margin-bottom: 24px; }
+    .analytics-title {
+      font-size: 16px;
+      font-weight: 800;
+      color: #1e293b;
+      margin-bottom: 12px;
+      padding-bottom: 4px;
+      border-bottom: 2px solid #2563eb;
+      display: inline-block;
+    }
+    
+    .insight-box {
+      background: #eff6ff;
+      border-left: 4px solid #2563eb;
+      padding: 10px;
+      border-radius: 6px;
+      margin-bottom: 16px;
+    }
+    .insight-item {
+      font-size: 10px;
+      font-weight: 600;
+      color: #1e3a8a;
+      margin-bottom: 4px;
+    }
+    .insight-item::before { content: "• "; color: #3b82f6; }
+    .insight-item.critical { color: #991b1b; }
+    .insight-item.critical::before { color: #ef4444; }
+
+    /* CHARTS GRID */
+    .chart-container {
+      font-size: 0; /* To prevent whitespace gap between inline-blocks */
+      margin-bottom: 12px;
+    }
+    .chart-card {
+      display: inline-block;
+      width: 48%;
+      margin-right: 4%;
+      margin-bottom: 12px;
+      vertical-align: top;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      background: #ffffff;
+      padding: 10px;
+      box-sizing: border-box;
+    }
+    /* Simple inline layout using nth-child */
+    .chart-card:nth-child(even) { margin-right: 0; }
+
+    .chart-header { display: table; width: 100%; margin-bottom: 6px; }
+    .chart-title-cell { display: table-cell; vertical-align: middle; }
+    .chart-title { font-size: 11px; font-weight: 800; color: #0f172a; display: block; line-height: 1.2; }
+    .chart-unit { font-size: 8px; color: #64748b; font-weight: 600; }
+    .chart-val-cell { display: table-cell; text-align: right; vertical-align: middle; font-size: 16px; font-weight: 800; color: #0f172a; }
+    
+    .chart-body { display: table; width: 100%; margin-top: 8px; table-layout: fixed; }
+    .history-chart-cell { display: table-cell; width: 45%; vertical-align: top; border-right: 1px dashed #e2e8f0; padding-right: 6px; }
+    .range-chart-cell { display: table-cell; width: 55%; vertical-align: bottom; padding-left: 6px; }
+
+    /* CUSTOM BAR CHART (Reference Range) */
+    .range-bar-container { position: relative; width: 100%; height: 14px; background: #f1f5f9; border-radius: 7px; margin-bottom: 4px; border: 1px solid #cbd5e1; }
+    .range-normal-zone { position: absolute; height: 100%; background: #dcfce7; left: 20%; width: 60%; border-left: 1px dashed #4ade80; border-right: 1px dashed #4ade80; }
+    .range-marker { position: absolute; height: 18px; width: 4px; background: #0f172a; border-radius: 2px; top: -3px; margin-left: -2px; }
+    .range-marker.critical { background: #dc2626; box-shadow: 0 0 2px rgba(220, 38, 38, 0.5); }
+    .range-marker.borderline { background: #ea580c; }
+    
+    .range-axes { display: table; width: 100%; }
+    .range-axis-lbl { display: table-cell; font-size: 7px; color: #64748b; font-weight: 700; width: 33%; }
+    .range-axis-lbl.left { text-align: left; }
+    .range-axis-lbl.center { text-align: center; color: #16a34a; }
+    .range-axis-lbl.right { text-align: right; }
+
+    /* LAB RESULTS SECTION */
+    .test-group-header {
+      background: #1e293b;
+      color: #ffffff;
+      padding: 8px 12px;
+      font-size: 13px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-radius: 6px 6px 0 0;
+      margin-bottom: 0;
+    }
+    .regular .test-group-header {
+      background: transparent;
+      color: #0f172a;
+      border-bottom: 3px solid #0f172a;
+      border-radius: 0;
+      padding: 4px 0;
+      margin-bottom: 8px;
+    }
+    
+    .results-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-bottom: 12px;
+    }
+    .results-table th {
+      padding: 8px 10px;
+      text-align: left;
+      font-size: 9px;
+      font-weight: 700;
+      color: #64748b;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border-bottom: 2px solid #e2e8f0;
+      background: #f8fafc;
+    }
+    .regular .results-table th {
+      background: transparent;
+      color: #0f172a;
+      border-bottom: 2px solid #0f172a;
+    }
+
+    .results-table td {
+      padding: 10px;
+      font-size: 11px;
+      border-bottom: 1px solid #f1f5f9;
+      vertical-align: middle;
+    }
+    .results-table tr:last-child td { border-bottom: none; }
+    
+    .regular .results-table td { border-bottom: 1px dashed #cbd5e1; }
+    
+    /* Result Column Styles */
+    .td-analyte { font-weight: 800; color: #334155; }
+    .regular .td-analyte { color: #000; }
+    
+    .td-result { font-weight: 800; font-size: 13px; color: #0f172a; }
+    .td-result-abnormal { color: #dc2626; }
+    .regular .td-result-abnormal { color: #000; font-weight: 900; text-decoration: underline; }
+    
+    .td-unit { color: #64748b; font-size: 10px; font-weight: 600; }
+    .td-range { color: #475569; font-weight: 700; font-size: 10px; }
+    
+    /* Status Badges (Smart Only) */
+    .status-badge {
+      display: inline-block;
+      padding: 3px 8px;
+      border-radius: 12px;
+      font-size: 8px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      border: 1px solid;
+    }
+    .badge-normal   { background: #dcfce7; color: #166534; border-color: #86efac; }
+    .badge-abnormal { background: #fee2e2; color: #991b1b; border-color: #fca5a5; }
+    .badge-borderline { background: #ffedd5; color: #9a3412; border-color: #fdba74; }
+
+    /* INTERPRETATION */
+    .interpretation-box {
+      margin-top: 12px;
+      padding: 10px 14px;
+      background: #f8fafc;
+      border-left: 4px solid #cbd5e1;
+      border-radius: 4px;
+    }
+    .patient-smart .interpretation-box {
+      background: #eff6ff;
+      border-left: 4px solid #3b82f6;
+    }
+    .interpretation-box p { color: #334155; font-size: 10px; line-height: 1.6; }
+    .patient-smart .interpretation-box p { color: #1e3a8a; }
+    .interpretation-title { font-weight: 800; margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; font-size: 9px; }
+
+    /* DOCTOR SIGNATURE */
+    .signature-grid {
+      display: table;
+      width: 100%;
+      margin-top: 32px;
+      border-top: 2px solid #e2e8f0;
+      padding-top: 16px;
+    }
+    .sig-disclaimer { display: table-cell; width: 60%; vertical-align: bottom; padding-right: 16px; }
+    .sig-block { display: table-cell; width: 40%; vertical-align: bottom; text-align: right; }
+    .sig-img { max-height: 50px; margin-bottom: 6px; }
+
+  </style>
+
+</head>
+<body th:classappend="${report.reportType == 'smart'} ? 'patient-smart' : 'regular'">
+
+  <!-- PAGE HEADER -->
+  <div class="page-header" th:if="${report.withHeader}" th:style="'top:0mm; height:' + ${report.branding.headerHeightMm} + 'mm;'">
+    <img th:if="${!#strings.isEmpty(report.branding.headerImage)}" th:src="${report.branding.headerImage}" alt="Header"/>
+    <div th:if="${#strings.isEmpty(report.branding.headerImage)}" style="padding: 10mm 16mm; text-align: left; background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+        <h1 style="font-size: 20px; font-weight: 900; color: #0f172a;" th:text="${report.reportTitle}">Diagnostic Report</h1>
+        <p style="font-size: 11px; color: #64748b; margin-top: 4px;">Verified Diagnostic Center</p>
+    </div>
+  </div>
+  
+  <!-- PAGE FOOTER -->
+  <div class="page-footer" th:if="${report.withHeader}" th:style="'bottom:0mm; height:' + ${report.branding.footerHeightMm} + 'mm;'">
+    <img th:if="${!#strings.isEmpty(report.branding.footerImage)}" th:src="${report.branding.footerImage}" alt="Footer"/>
+    <div th:if="${#strings.isEmpty(report.branding.footerImage)}" style="padding: 2mm 12mm; font-size: 9px; color:#64748b; text-align:right;">
+      <span th:text="'Generated: ' + ${report.metadata.generatedAt}">Generated</span>
+    </div>
+  </div>
+
+  <div class="report-body">
+    
+    <!-- PATIENT DETAILS SECTION -->
+    <div class="patient-container">
+      <div class="patient-grid">
+        <div class="patient-col">
+          <p class="patient-label">Patient Name</p>
+          <p class="patient-val text-lg" th:text="${report.patient.patientName}">Name</p>
+          <p class="patient-label mt-2">Age / Gender</p>
+          <p class="patient-val" th:text="${report.patient.age} + ' / ' + ${report.patient.gender}">Age/Gender</p>
+        </div>
+        <div class="patient-col">
+          <p class="patient-label">Patient ID</p>
+          <p class="patient-val" th:text="${report.patient.patientId}">PID</p>
+          <p class="patient-label mt-2">Referring Doctor</p>
+          <p class="patient-val" th:text="${report.patient.referringDoctor}">Doctor</p>
+        </div>
+        <div class="patient-col">
+          <p class="patient-label">Service Request</p>
+          <p class="patient-val" th:text="${report.patient.serviceRequestNumber}">SRF</p>
+          <p class="patient-label mt-2">Sample Type</p>
+          <p class="patient-val" th:text="${report.patient.sampleType}">Sample</p>
+        </div>
+        <div class="patient-col last">
+          <p class="patient-label">Collection Date</p>
+          <p class="patient-val" th:text="${report.patient.collectionDate}">Date</p>
+          <p class="patient-label mt-2">Report Date</p>
+          <p class="patient-val c-blue-600" th:text="${report.patient.reportDate}">Date</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- RESULT ANALYTICS SECTION (SMART ONLY) -->
+    <div th:if="${report.reportType == 'smart'}" class="analytics-section">
+      <h2 class="analytics-title">Result Analytics</h2>
+      
+      <!-- Smart Insights -->
+      <div class="insight-box">
+        <div th:each="insight : ${report.insights}" class="insight-item" th:classappend="${#strings.containsIgnoreCase(insight, 'abnormal')} ? 'critical' : ''">
+          <span th:text="${insight}">Insight text</span>
+        </div>
+        <div th:if="${report.insights == null or report.insights.isEmpty()}" class="insight-item">
+          <span>All parameters within normal reference ranges. No critical patterns detected.</span>
+        </div>
+      </div>
+
+      <!-- Graphical Charts for ALL Analytes -->
+      <div th:each="group : ${report.testGroups}">
+        <div th:if="${group.analytes.size() > 0}" style="margin-bottom: 8px;">
+            <p class="text-xs fw8 c-slate-500 uppercase tracking-wide mb-2" th:text="${group.testName}">Test Name</p>
+            
+            <div class="chart-container avoid-break">
+              <!-- Inline-blocks automatically wrap. Native CSS flexbox isn't perfectly supported in PDF renderer so we use float-like inline-blocks -->
+              <div class="chart-card" th:each="analyte : ${group.analytes}">
+                <div class="chart-header">
+                  <div class="chart-title-cell">
+                      <span class="chart-title" th:text="${analyte.analyteName}">Analyte Name</span>
+                      <span class="chart-unit" th:if="${analyte.unit != null and analyte.unit != ''}" th:text="${analyte.unit}">unit</span>
+                  </div>
+                  <div class="chart-val-cell c-blue-600" th:classappend="${analyte.isAbnormal} ? 'c-red-600' : ''" th:text="${analyte.value}">Val</div>
+                </div>
+                <div class="chart-body">
+                  <!-- Historical Line Chart -->
+                  <div class="history-chart-cell">
+                      <p class="text-xxs fw8 c-slate-400 uppercase tracking-wide mb-1">■ Trend</p>
+                      <div th:if="${analyte.pointCount > 1}" th:utext="${analyte.sparklineSvg}" style="text-align:center;"></div>
+                      <div th:if="${analyte.pointCount <= 1}">
+                          <p class="text-xxs c-slate-400" style="padding-top:16px; text-align:center;">No History</p>
+                      </div>
+                  </div>
+                  <!-- Range Bar Chart -->
+                  <div class="range-chart-cell">
+                      <p class="text-xxs fw8 c-slate-400 uppercase tracking-wide mb-1" style="text-align:right;">■ vs Range</p>
+                      <div class="range-bar-container">
+                          <div class="range-normal-zone"></div>
+                          <div class="range-marker" th:classappend="${analyte.statusClass == 'status-abnormal'} ? 'critical' : (${analyte.statusClass == 'status-borderline'} ? 'borderline' : '')" th:style="'left:' + ${analyte.markerPercent} + '%;'"></div>
+                      </div>
+                      <div class="range-axes">
+                          <div class="range-axis-lbl left" th:text="${analyte.refLowDisplay != '' ? analyte.refLowDisplay : 'Low'}">0</div>
+                          <div class="range-axis-lbl center">Nrml</div>
+                          <div class="range-axis-lbl right" th:text="${analyte.refHighDisplay != '' ? analyte.refHighDisplay : 'High'}">100</div>
+                      </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- LABORATORY RESULTS SECTION -->
+    <div th:each="group, iterStat : ${report.testGroups}" class="test-group avoid-break" th:classappend="${iterStat.first and report.reportType != 'smart'} ? 'mt-4' : 'page-break-before'">
+      
+      <div class="test-group-header" th:text="${group.testName}">Test Name</div>
+      
+      <table class="results-table">
+        <thead>
+          <tr>
+            <th style="width: 40%;">Analyte</th>
+            <th style="width: 15%; text-align: center;">Result</th>
+            <th style="width: 10%;">Unit</th>
+            <th style="width: 20%;">Ref. Range</th>
+            <th th:if="${report.reportType == 'smart'}" style="width: 15%; text-align: center;">Status</th>
+          </tr>
+        </thead>
+        <tbody>
+          <!-- We style the whole row if TR is abnormal in regular report for visual emphasis -->
+          <tr th:each="analyte : ${group.analytes}" class="avoid-break" th:classappend="${report.reportType != 'smart' and analyte.isAbnormal} ? 'bg-slate-50' : ''">
+            <td class="td-analyte" th:text="${analyte.analyteName}">Name</td>
+            
+            <td class="td-result" style="text-align: center;">
+              <span th:classappend="${analyte.isAbnormal} ? 'td-result-abnormal' : ''" th:text="${report.reportType != 'smart' and analyte.isAbnormal ? analyte.value + ' *' : analyte.value}">12.5</span>
+            </td>
+            
+            <td class="td-unit" th:text="${analyte.unit}">unit</td>
+            <td class="td-range" th:text="${analyte.referenceRange}">0 - 10</td>
+            
+            <td th:if="${report.reportType == 'smart'}" style="text-align: center; white-space: nowrap;">
+              <span class="status-badge" 
+                    th:classappend="${analyte.statusClass == 'status-abnormal'} ? 'badge-abnormal' : (${analyte.statusClass == 'status-borderline'} ? 'badge-borderline' : 'badge-normal')"
+                    th:text="${analyte.status}">Normal</span>
+            </td>
+          </tr>
+        </tbody>
+      </table>
+
+      <!-- INTERPRETATION -->
+      <div th:if="${!#strings.isEmpty(group.interpretation)}" class="interpretation-box avoid-break">
+        <p class="interpretation-title c-slate-500">Clinical Interpretation</p>
+        <p th:text="${group.interpretation}">Text</p>
+      </div>
+
+    </div>
+
+    <!-- SIGNATURE SECTION -->
+    <div class="signature-grid avoid-break">
+      <div class="sig-disclaimer">
+        <p class="text-xs fw8 c-slate-700 uppercase mb-1">Diagnostic Compliance &amp; Standards</p>
+        <p class="text-xs c-slate-500 mb-2">
+          This report incorporates automated analyzer intelligence. Values must be correlated with clinical symptoms and previous records. Reference ranges follow international benchmarks and may vary procedurally.
+        </p>
+        <p class="text-xxs fw8 c-blue-600 uppercase tracking-wide">*** Verified Electronic Record ***</p>
+      </div>
+      <div class="sig-block">
+        <div th:if="${!#strings.isEmpty(report.signature.signatureImage)}">
+          <img class="sig-img" th:src="${report.signature.signatureImage}" alt="Doctor Signature"/>
+        </div>
+        <p class="text-lg fw8 c-slate-900 mt-1" th:text="${report.signature.doctorName}">Dr. Name</p>
+        <p class="text-xxs fw8 c-slate-500 uppercase tracking-wide mt-1" th:text="${report.signature.qualification}">Specialist</p>
+        <p class="text-xxs fw8 c-slate-400 mt-1 uppercase" th:if="${!#strings.isEmpty(report.signature.approvedAt)}" th:text="'Apprv: ' + ${report.signature.approvedAt}">Date</p>
+      </div>
+    </div>
+    
+  </div>
+</body>
+</html>

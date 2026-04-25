@@ -1,48 +1,40 @@
 package com.halo.lims.service;
 
 import com.halo.lims.constant.EncounterStatus;
+import com.halo.lims.constant.ServiceRequestStatus;
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.encounter.EncounterCreateRequest;
 import com.halo.lims.dto.encounter.EncounterDetailResponse;
 import com.halo.lims.dto.encounter.EncounterListResponse;
 import com.halo.lims.dto.encounter.EncounterResponse;
 import com.halo.lims.dto.encounter.EncounterUpdateRequest;
+import com.halo.lims.security.SecurityService;
 import com.halo.lims.model.Encounter;
 import com.halo.lims.model.Organization;
 import com.halo.lims.model.Patient;
 import com.halo.lims.model.ServiceRequest;
 import com.halo.lims.model.ServiceRequestItem;
-import com.halo.lims.model.Specimen;
+import com.halo.lims.repository.BillRepository;
 import com.halo.lims.repository.EncounterRepository;
 import com.halo.lims.repository.OrganizationRepository;
 import com.halo.lims.repository.PatientRepository;
 import com.halo.lims.repository.ServiceRequestItemRepository;
 import com.halo.lims.repository.ServiceRequestRepository;
 import com.halo.lims.repository.SpecimenRepository;
-import com.halo.lims.security.SecurityService;
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.Predicate;
-import jakarta.persistence.criteria.Root;
-import jakarta.persistence.criteria.Subquery;
-import org.apache.commons.lang3.StringUtils;
-import java.time.OffsetDateTime;
 import org.springframework.data.domain.Page;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.jpa.domain.Specification;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDate;
-import java.time.Period;
+import java.time.LocalDateTime;
+import java.time.LocalTime;
+import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
-import java.util.ArrayList;
 import java.util.Collections;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -55,6 +47,10 @@ public class EncounterService {
     private final ServiceRequestRepository serviceRequestRepository;
     private final ServiceRequestItemRepository serviceRequestItemRepository;
     private final SpecimenRepository specimenRepository;
+    private final BillRepository billRepository;
+    private final ReportApprovalService reportApprovalService;
+    private final ReportService reportService;
+    private final IdentifierGenerationService identifierGenerationService;
 
     public EncounterService(EncounterRepository encounterRepository,
                             PatientRepository patientRepository,
@@ -62,7 +58,11 @@ public class EncounterService {
                             SecurityService securityService,
                             ServiceRequestRepository serviceRequestRepository,
                             ServiceRequestItemRepository serviceRequestItemRepository,
-                            SpecimenRepository specimenRepository) {
+                            SpecimenRepository specimenRepository,
+                            BillRepository billRepository,
+                            ReportApprovalService reportApprovalService,
+                            ReportService reportService,
+                            IdentifierGenerationService identifierGenerationService) {
         this.encounterRepository = encounterRepository;
         this.patientRepository = patientRepository;
         this.organizationRepository = organizationRepository;
@@ -70,37 +70,44 @@ public class EncounterService {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.specimenRepository = specimenRepository;
+        this.billRepository = billRepository;
+        this.reportApprovalService = reportApprovalService;
+        this.reportService = reportService;
+        this.identifierGenerationService = identifierGenerationService;
     }
 
     @Transactional
     public EncounterResponse createEncounter(EncounterCreateRequest request) {
         Patient patient = patientRepository.findById(request.getPatientId())
                 .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + request.getPatientId()));
+        
         Organization serviceProvider = organizationRepository.findById(request.getServiceProviderId())
-                .orElseThrow(() -> new RuntimeException("Service Provider Organization not found with ID: " + request.getServiceProviderId()));
+            .orElseGet(patient::getOrganization);
+
+        if (serviceProvider == null || serviceProvider.getId() == null) {
+            throw new RuntimeException("Service Provider Organization not found with ID: " + request.getServiceProviderId());
+        }
 
         // --- Multi-tenancy check ---
         Integer patientOrgId = patient.getOrganization().getId();
         if (!securityService.isUserInOrganization(patientOrgId)) {
             throw new org.springframework.security.access.AccessDeniedException("User not authorized to create encounters for patients in organization ID: " + patientOrgId);
         }
-        // Ensure the service provider is also within the user's accessible organizations (optional, but good practice)
         if (!securityService.isUserInOrganization(serviceProvider.getId())) {
             throw new org.springframework.security.access.AccessDeniedException("User not authorized to create encounters with service provider organization ID: " + serviceProvider.getId());
         }
         // --- End multi-tenancy check ---
 
-        Encounter encounter = Encounter.builder()
-                .patient(patient)
-                .startTime(request.getStartTime())
-                .endTime(request.getEndTime())
-                .status(request.getStatus() != null ? EncounterStatus.valueOf(request.getStatus()).getCode() : null)
-                .encounterClass(request.getEncounterClass())
-                .serviceProvider(serviceProvider)
-                .localEncounterSystem("http://com.lims/encounter-id")
-                .localEncounterValue(generateLocalEncounterId())
-                .referenceDoctor(request.getReferenceDoctor())
-                .build();
+        Encounter encounter = new Encounter();
+        encounter.setPatient(patient);
+        encounter.setStartTime(request.getStartTime());
+        encounter.setEndTime(request.getEndTime());
+        encounter.setStatus(request.getStatus() != null ? normalizeEncounterStatusCode(request.getStatus()) : null);
+        encounter.setEncounterClass(request.getEncounterClass());
+        encounter.setServiceProvider(serviceProvider);
+        encounter.setLocalEncounterSystem("http://com.lims/encounter-id");
+        encounter.setLocalEncounterValue(identifierGenerationService.generateEncounterValue(serviceProvider.getId(), 3));
+        encounter.setReferenceDoctor(request.getReferenceDoctor());
 
         Encounter savedEncounter = encounterRepository.save(encounter);
         return mapToEncounterResponse(savedEncounter);
@@ -119,158 +126,193 @@ public class EncounterService {
         // --- End multi-tenancy check ---
 
         if (request.getEndTime() != null) encounter.setEndTime(request.getEndTime());
-        if (request.getStatus() != null) encounter.setStatus(EncounterStatus.valueOf(request.getStatus()).getCode());
+
+        if (request.getStatus() != null) {
+            String requestedStatus = normalizeEncounterStatusCode(request.getStatus());
+            validateEncounterStatusChange(encounter, requestedStatus);
+            encounter.setStatus(requestedStatus);
+        }
+
         if (request.getEncounterClass() != null) encounter.setEncounterClass(request.getEncounterClass());
 
         Encounter updatedEncounter = encounterRepository.save(encounter);
         return mapToEncounterResponse(updatedEncounter);
     }
 
-    @Transactional(readOnly = true)
-    public EncounterResponse getEncounterById(Integer id) {
+    @Transactional
+    public EncounterResponse updateEncounterWorkflowStatus(Integer id, String newStatus, com.halo.lims.model.Practitioner approver) {
         Encounter encounter = encounterRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
 
         // --- Multi-tenancy check ---
         Integer patientOrgId = encounter.getPatient().getOrganization().getId();
         if (!securityService.isUserInOrganization(patientOrgId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to view encounters for patients in organization ID: " + patientOrgId);
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized to update encounters for patients in organization ID: " + patientOrgId);
         }
-        // --- End multi-tenancy check ---
+
+        String normalizedStatus = normalizeEncounterStatusCode(newStatus);
+        validateEncounterStatusChange(encounter, normalizedStatus);
+
+        encounter.setStatus(normalizedStatus);
+        if (approver != null && EncounterStatus.APPROVED.getCode().equalsIgnoreCase(normalizedStatus)) {
+            encounter.setApprovingPractitioner(approver);
+        }
+
+        // Propagate COMPLETED status to all associated ServiceRequests
+        if (EncounterStatus.COMPLETED.getCode().equalsIgnoreCase(normalizedStatus)) {
+            List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounter(encounter);
+            for (ServiceRequest sr : serviceRequests) {
+                if (sr.getStatus() != null && !"cancelled".equalsIgnoreCase(sr.getStatus())) {
+                    sr.setStatus(ServiceRequestStatus.COMPLETED.getCode());
+                    serviceRequestRepository.save(sr);
+                }
+            }
+        }
+
+        Encounter saved = encounterRepository.save(encounter);
+        return mapToEncounterResponse(saved);
+    }
+
+    private void validateEncounterStatusChange(Encounter encounter, String newStatus) {
+        String currentStatus = encounter.getStatus();
+        if (EncounterStatus.COMPLETED.getCode().equalsIgnoreCase(currentStatus)) {
+            throw new RuntimeException("Cannot change status of a COMPLETED encounter");
+        }
+        if (EncounterStatus.CANCELLED.getCode().equalsIgnoreCase(currentStatus)) {
+            throw new RuntimeException("Cannot change status of a CANCELLED encounter");
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public EncounterResponse getEncounter(Integer id) {
+        Encounter encounter = encounterRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
+        
+        // Multi-tenancy check
+        if (!securityService.isUserInOrganization(encounter.getPatient().getOrganization().getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized to access encounter ID: " + id);
+        }
 
         return mapToEncounterResponse(encounter);
     }
 
     @Transactional(readOnly = true)
-    public EncounterDetailResponse getEncounterDetailsById(Integer id) {
+    public EncounterDetailResponse getEncounterDetail(Integer id) {
         Encounter encounter = encounterRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
-        Patient patient = encounter.getPatient();
+
+        // Multi-tenancy check
+        if (!securityService.isUserInOrganization(encounter.getPatient().getOrganization().getId())) {
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized to access encounter ID: " + id);
+        }
+
         List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounter(encounter);
-        List<ServiceRequestItem> serviceRequestItems = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
-        List<Specimen> specimens = specimenRepository.findByServiceRequestIn(serviceRequests);
+        List<ServiceRequestItem> items = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+        
+        List<String> testNames = items.stream()
+                .map(item -> item.getTest().getTestName())
+                .distinct()
+                .collect(Collectors.toList());
 
         EncounterDetailResponse response = new EncounterDetailResponse();
         response.setId(encounter.getId());
-        response.setPatientId(patient.getId());
-        response.setPatientName(patient.getFirstName() + " " + patient.getLastName());
-        response.setPatientAge(calculateAge(patient.getDateOfBirth()));
-        response.setPatientGender(patient.getGender());
-        response.setMrnId(patient.getLocalMrnValue());
+        response.setPatientId(encounter.getPatient().getId());
+        response.setPatientName(encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName());
+        
+        // Calculate age
+        if (encounter.getPatient().getDateOfBirth() != null) {
+            response.setPatientAge(String.valueOf(java.time.Period.between(encounter.getPatient().getDateOfBirth(), LocalDate.now()).getYears()));
+        }
+        
+        response.setPatientGender(encounter.getPatient().getGender());
+        response.setMrnId(encounter.getPatient().getLocalMrnValue());
         response.setReferenceDoctor(encounter.getReferenceDoctor());
         response.setDate(encounter.getStartTime());
+        response.setStatus(encounter.getStatus());
         response.setLocalEncounterValue(encounter.getLocalEncounterValue());
-        if (encounter.getStatus() != null) {
-            response.setStatus(EncounterStatus.fromCode(encounter.getStatus()).map(Enum::name).orElse(encounter.getStatus()));
-        }
-
-        if (!specimens.isEmpty()) {
-            specimens.stream()
-                    .map(Specimen::getCollectionDate)
-                    .min(OffsetDateTime::compareTo)
-                    .ifPresent(response::setCollectionDate);
-            response.setSampleType(specimens.stream()
-                    .map(specimen -> specimen.getSpecimenType().getName())
-                    .distinct()
-                    .collect(Collectors.joining(", ")));
-        }
-
-        response.setTests(serviceRequestItems.stream()
-                .map(item -> item.getTest().getTestName())
-                .distinct()
-                .collect(Collectors.toList()));
-        response.setServiceRequestIds(serviceRequests.stream()
-                .map(ServiceRequest::getId)
-                .collect(Collectors.toList()));
+        response.setTests(testNames);
+        response.setServiceRequestIds(serviceRequests.stream().map(ServiceRequest::getId).collect(Collectors.toList()));
 
         return response;
     }
 
     @Transactional(readOnly = true)
-    public List<EncounterResponse> getEncountersByPatient(Integer patientId) {
-        Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + patientId));
-
-        // --- Multi-tenancy check ---
-        Integer patientOrgId = patient.getOrganization().getId();
-        if (!securityService.isUserInOrganization(patientOrgId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to view encounters for patients in organization ID: " + patientOrgId);
-        }
-        // --- End multi-tenancy check ---
-
-        return encounterRepository.findByPatient(patient).stream()
-                .map(this::mapToEncounterResponse)
-                .collect(Collectors.toList());
+    public PagedResponse<EncounterListResponse> getEncounters(Integer organizationId, Pageable pageable) {
+        Page<Encounter> encounterPage = encounterRepository.findByPatient_Organization_Id(organizationId, pageable);
+        return mapToPagedEncounterListResponse(encounterPage);
     }
 
     @Transactional(readOnly = true)
     public PagedResponse<EncounterListResponse> searchEncounters(
-            Integer organizationId, LocalDate startDate, LocalDate endDate, List<Integer> testIds, String query, int page, int size) {
+            Integer organizationId,
+            LocalDate startDate,
+            LocalDate endDate,
+            String patientName,
+            String mrnId,
+            Pageable pageable) {
+        
+        OffsetDateTime start = (startDate != null) ? startDate.atStartOfDay().atOffset(ZoneOffset.UTC) : null;
+        OffsetDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC) : null;
 
+        Page<Encounter> encounterPage = encounterRepository.searchEncounters(
+                organizationId, start, end, patientName, mrnId, pageable);
+        
+        return mapToPagedEncounterListResponse(encounterPage);
+    }
+
+    // Backwards-compatible methods expected by controllers
+    public EncounterResponse getEncounterById(Integer id) {
+        return getEncounter(id);
+    }
+
+    public EncounterDetailResponse getEncounterDetailsById(Integer id) {
+        return getEncounterDetail(id);
+    }
+
+    public List<EncounterResponse> getEncountersByPatient(Integer patientId) {
+        List<Encounter> encounters = encounterRepository.findByPatient_Id(patientId);
+        return encounters.stream().map(this::mapToEncounterResponse).collect(Collectors.toList());
+    }
+
+    public PagedResponse<EncounterListResponse> searchEncounters(
+            Integer organizationId,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<Integer> testIds,
+            String query,
+            String department,
+            String sampleCollector,
+            String referringDoctor,
+            String hospital,
+            int page,
+            int size) {
         Pageable pageable = PageRequest.of(page, size);
+        // For now map query to patientName and ignore other filters not implemented in repository
+        return searchEncounters(organizationId, startDate, endDate, query, null, pageable);
+    }
 
-        Specification<Encounter> spec = (root, criteriaQuery, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
-            Join<Encounter, Patient> patientJoin = root.join("patient");
-
-            predicates.add(cb.equal(patientJoin.get("organization").get("id"), organizationId));
-
-            if (startDate != null) {
-                predicates.add(cb.greaterThanOrEqualTo(root.get("startTime"), startDate.atStartOfDay().atOffset(ZoneOffset.UTC)));
-            }
-            if (endDate != null) {
-                predicates.add(cb.lessThan(root.get("startTime"), endDate.plusDays(1).atStartOfDay().atOffset(ZoneOffset.UTC)));
-            }
-
-            if (StringUtils.isNotBlank(query)) {
-                String likePattern = "%" + query.toLowerCase() + "%";
-                predicates.add(cb.or(
-                        cb.like(cb.lower(patientJoin.get("firstName")), likePattern),
-                        cb.like(cb.lower(patientJoin.get("lastName")), likePattern),
-                        cb.like(cb.lower(patientJoin.get("localMrnValue")), likePattern)
-                ));
-            }
-
-            if (testIds != null && !testIds.isEmpty()) {
-                Subquery<Integer> subquery = criteriaQuery.subquery(Integer.class);
-                Root<ServiceRequestItem> itemRoot = subquery.from(ServiceRequestItem.class);
-                Join<ServiceRequestItem, ServiceRequest> srJoin = itemRoot.join("serviceRequest");
-
-                subquery.select(srJoin.get("encounter").get("id"))
-                        .where(itemRoot.get("test").get("id").in(testIds));
-
-                predicates.add(root.get("id").in(subquery));
-            }
-
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        Page<Encounter> encounterPage = encounterRepository.findAll(spec, pageable);
+    private PagedResponse<EncounterListResponse> mapToPagedEncounterListResponse(Page<Encounter> encounterPage) {
         List<Encounter> encounters = encounterPage.getContent();
-
-        if (encounters.isEmpty()) {
-            return new PagedResponse<>(Collections.emptyList(), page, size, 0, 0);
-        }
-
+        
+        // Bulk fetch tests for performance
         List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounterIn(encounters);
-        List<ServiceRequestItem> serviceRequestItems = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
-
-        Map<Integer, List<String>> encounterToTestsMap = new HashMap<>();
-        for (ServiceRequestItem item : serviceRequestItems) {
-            if (item.getServiceRequest() != null && item.getServiceRequest().getEncounter() != null && item.getTest() != null) {
-                encounterToTestsMap
-                        .computeIfAbsent(item.getServiceRequest().getEncounter().getId(), k -> new ArrayList<>())
-                        .add(item.getTest().getTestName());
-            }
-        }
+        List<ServiceRequestItem> items = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+        
+        Map<Integer, List<String>> encounterToTestsMap = items.stream()
+                .collect(Collectors.groupingBy(
+                        item -> item.getServiceRequest().getEncounter().getId(),
+                        Collectors.mapping(item -> item.getTest().getTestName(), Collectors.toList())
+                ));
 
         List<EncounterListResponse> content = encounters.stream().map(encounter -> {
             List<String> testNames = encounterToTestsMap.getOrDefault(encounter.getId(), Collections.emptyList())
                     .stream().distinct().collect(Collectors.toList());
+            
             String status = encounter.getStatus();
             if (status != null) {
                 status = EncounterStatus.fromCode(status).map(Enum::name).orElse(status);
             }
+            
             return new EncounterListResponse(
                     encounter.getId(),
                     encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName(),
@@ -292,38 +334,23 @@ public class EncounterService {
         return response;
     }
 
-    private String generateLocalEncounterId() {
-        return "ENC-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
-    }
-
     private EncounterResponse mapToEncounterResponse(Encounter encounter) {
         EncounterResponse response = new EncounterResponse();
         response.setId(encounter.getId());
-        response.setLocalEncounterValue(encounter.getLocalEncounterValue());
         response.setPatientId(encounter.getPatient().getId());
-        response.setPatientMrn(encounter.getPatient().getLocalMrnValue());
-        response.setPatientName(encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName());
         response.setStartTime(encounter.getStartTime());
         response.setEndTime(encounter.getEndTime());
-        if (encounter.getStatus() != null) {
-            response.setStatus(EncounterStatus.fromCode(encounter.getStatus()).map(Enum::name).orElse(encounter.getStatus()));
-        }
+        response.setStatus(encounter.getStatus());
         response.setEncounterClass(encounter.getEncounterClass());
-        if (encounter.getServiceProvider() != null) {
-            response.setServiceProviderId(encounter.getServiceProvider().getId());
-            response.setServiceProviderName(encounter.getServiceProvider().getOrganizationName());
-        }
-        response.setOrganizationId(encounter.getPatient().getOrganization().getId()); // Patient's organization
-        response.setCreatedAt(encounter.getCreatedAt());
-        response.setUpdatedAt(encounter.getUpdatedAt());
+        response.setServiceProviderId(encounter.getServiceProvider().getId());
+        response.setLocalEncounterSystem(encounter.getLocalEncounterSystem());
+        response.setLocalEncounterValue(encounter.getLocalEncounterValue());
         response.setReferenceDoctor(encounter.getReferenceDoctor());
         return response;
     }
 
-    private String calculateAge(LocalDate dateOfBirth) {
-        if (Objects.isNull(dateOfBirth)) {
-            return "";
-        }
-        return String.format("%s Years", Period.between(dateOfBirth, LocalDate.now()).getYears());
+    private String normalizeEncounterStatusCode(String status) {
+        if (status == null) return null;
+        return status.toLowerCase();
     }
 }

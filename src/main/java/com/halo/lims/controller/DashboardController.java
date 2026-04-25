@@ -5,6 +5,7 @@ import com.halo.lims.service.DashboardService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
@@ -20,8 +21,10 @@ public class DashboardController {
 
     @GetMapping
     @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
-    public ResponseEntity<DashboardResponse> getDashboardData() {
-        DashboardResponse response = dashboardService.getDashboardData();
+    public ResponseEntity<DashboardResponse> getDashboardData(
+            @RequestParam(name = "days", defaultValue = "7") int days
+    ) {
+        DashboardResponse response = dashboardService.getDashboardData(days);
         return ResponseEntity.ok(response);
     }
 }

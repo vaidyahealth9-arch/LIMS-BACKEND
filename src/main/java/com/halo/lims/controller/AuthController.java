@@ -59,6 +59,7 @@ public class AuthController {
                     token,
                     user.getId(),
                     user.getUsername(),
+                    user.getRoles(),
                     user.getOrganization().getId(),
                     user.getOrganization().getOrganizationName()
             ));
@@ -101,6 +102,7 @@ public class AuthController {
                 token,
                 user.getId(),
                 user.getUsername(),
+            user.getRoles(),
                 user.getOrganization().getId(),
                 user.getOrganization().getOrganizationName()
         ));

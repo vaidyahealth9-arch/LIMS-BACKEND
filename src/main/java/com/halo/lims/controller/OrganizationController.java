@@ -1,6 +1,7 @@
 package com.halo.lims.controller;
 
 import com.halo.lims.dto.organization.OrganizationCreateRequest;
+import com.halo.lims.dto.organization.OrganizationReportBrandingUpdateRequest;
 import com.halo.lims.dto.organization.OrganizationResponse;
 import com.halo.lims.service.OrganizationService;
 import jakarta.validation.Valid;
@@ -41,9 +42,25 @@ public class OrganizationController {
      * @return The OrganizationResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('MANAGER') and @securityService.isUserInOrganization(#id))")
+    @PreAuthorize("hasRole('ADMIN') or @securityService.isUserInOrganization(#id)")
     public ResponseEntity<OrganizationResponse> getOrganizationById(@PathVariable Integer id) {
         OrganizationResponse response = organizationService.getOrganizationById(id);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
+    /**
+     * Updates report branding assets (header/footer images) for an organization.
+     * Accessible by ADMIN or by MANAGER within the same organization.
+     * @param id The organization ID.
+     * @param request The branding payload.
+     * @return Updated OrganizationResponse.
+     */
+    @PatchMapping("/{id}/report-branding")
+    @PreAuthorize("hasRole('ADMIN') or (hasRole('MANAGER') and @securityService.isUserInOrganization(#id))")
+    public ResponseEntity<OrganizationResponse> updateOrganizationReportBranding(
+            @PathVariable Integer id,
+            @Valid @RequestBody OrganizationReportBrandingUpdateRequest request) {
+        OrganizationResponse response = organizationService.updateOrganizationReportBranding(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

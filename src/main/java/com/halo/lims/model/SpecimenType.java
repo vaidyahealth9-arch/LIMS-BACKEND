@@ -1,7 +1,6 @@
 package com.halo.lims.model;
 
 import jakarta.persistence.*;
-import lombok.Data;
 import lombok.NoArgsConstructor;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -12,7 +11,6 @@ import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "specimen_types")
-@Data
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
@@ -40,4 +38,26 @@ public class SpecimenType {
     @UpdateTimestamp
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
+
+    // Getters and Setters
+    public Integer getId() { return id; }
+    public void setId(Integer id) { this.id = id; }
+
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getSnomedCode() { return snomedCode; }
+    public void setSnomedCode(String snomedCode) { this.snomedCode = snomedCode; }
+
+    public String getSnomedSystem() { return snomedSystem; }
+    public void setSnomedSystem(String snomedSystem) { this.snomedSystem = snomedSystem; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
+
+    public OffsetDateTime getCreatedAt() { return createdAt; }
+    public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public OffsetDateTime getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 }

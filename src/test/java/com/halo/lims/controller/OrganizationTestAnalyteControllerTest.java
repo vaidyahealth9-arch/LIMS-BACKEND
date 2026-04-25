@@ -4,7 +4,6 @@ import com.halo.lims.dto.organizationTestAnalyte.BulkUpdateOrganizationTestAnaly
 import com.halo.lims.service.OrganizationTestAnalyteService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.http.ResponseEntity;
@@ -19,12 +18,12 @@ public class OrganizationTestAnalyteControllerTest {
     @Mock
     private OrganizationTestAnalyteService organizationTestAnalyteService;
 
-    @InjectMocks
     private OrganizationTestAnalyteController organizationTestAnalyteController;
 
     @BeforeEach
     public void setUp() {
         MockitoAnnotations.openMocks(this);
+        organizationTestAnalyteController = new OrganizationTestAnalyteController(organizationTestAnalyteService);
     }
 
     @Test
@@ -34,7 +33,7 @@ public class OrganizationTestAnalyteControllerTest {
 
         ResponseEntity<Void> response = organizationTestAnalyteController.bulkUpdateOrganizationTestAnalytes(1, 1, request);
 
-        assertEquals(200, response.getStatusCodeValue());
+        assertEquals(200, response.getStatusCode().value());
         verify(organizationTestAnalyteService).bulkUpdateOrganizationTestAnalytes(1, 1, Collections.singletonList(1));
     }
 }

@@ -1,9 +1,7 @@
 package com.halo.lims.dto.specimenType;
 
 import jakarta.validation.constraints.Size;
-import lombok.Data;
 
-@Data
 public class SpecimenTypeUpdateRequest {
     @Size(max = 100)
     private String name;
@@ -15,4 +13,19 @@ public class SpecimenTypeUpdateRequest {
     private String snomedSystem;
 
     private String description;
+
+    public SpecimenTypeUpdateRequest() {}
+
+    // Getters and Setters
+    public String getName() { return name; }
+    public void setName(String name) { this.name = name; }
+
+    public String getSnomedCode() { return snomedCode; }
+    public void setSnomedCode(String snomedCode) { this.snomedCode = snomedCode; }
+
+    public String getSnomedSystem() { return snomedSystem; }
+    public void setSnomedSystem(String snomedSystem) { this.snomedSystem = snomedSystem; }
+
+    public String getDescription() { return description; }
+    public void setDescription(String description) { this.description = description; }
 }

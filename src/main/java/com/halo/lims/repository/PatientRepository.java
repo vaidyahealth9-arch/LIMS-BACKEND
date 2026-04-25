@@ -31,4 +31,6 @@ public interface PatientRepository extends JpaRepository<Patient, Integer> {
     Page<Patient> searchPatients(@Param("organization") Organization organization, @Param("query") String query, Pageable pageable);
 
     Optional<Patient> findByLocalMrnValueAndOrganization(String localMrnValue, Organization organization);
+
+    List<Patient> findByContactPhoneNormalized(String contactPhoneNormalized);
 }

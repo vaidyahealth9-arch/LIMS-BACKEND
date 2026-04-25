@@ -21,6 +21,7 @@ import java.util.Optional;
 public interface BillRepository extends JpaRepository<Bill, Integer> {
     Optional<Bill> findByInvoiceNumber(String invoiceNumber);
     List<Bill> findByEncounter(Encounter encounter);
+    List<Bill> findByEncounterOrderByCreatedAtAsc(Encounter encounter);
     List<Bill> findByEncounter_Id(Integer encounterId);
     List<Bill> findByPatient(Patient patient);
     List<Bill> findByPatient_Id(Integer patientId);

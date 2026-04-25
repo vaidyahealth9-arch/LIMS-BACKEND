@@ -2,6 +2,7 @@ package com.halo.lims.security;
 
 import com.halo.lims.model.*;
 import com.halo.lims.repository.*;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -39,32 +40,35 @@ public class SecurityService {
         return (User) authentication.getPrincipal();
     }
 
+    public User getAuthenticatedUser() {
+        User currentUser = getCurrentUser();
+        if (currentUser == null) {
+            throw new AccessDeniedException("Access denied: no authenticated user context");
+        }
+        return currentUser;
+    }
 
-    /**
-     * Checks if the currently authenticated user belongs to the specified organization.
-     * An ADMIN user can access any organization's data.
-     * @param organizationId The ID of the organization being accessed.
-     * @return true if the user belongs to the organization or is an ADMIN, false otherwise.
-     */
-    public boolean isUserInOrganization(Integer organizationId) {
-        // 1. Get the current authentication object from the SecurityContext
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        // If no user is authenticated or authentication is anonymous/unsupported
-        if (authentication == null || !authentication.isAuthenticated() || !(authentication.getPrincipal() instanceof User)) {
+    public boolean isCurrentUserInOrganizationStrict(Integer organizationId) {
+        if (organizationId == null) {
             return false;
         }
 
-        // 2. Get the authenticated user (our custom User entity)
-        User currentUser = (User) authentication.getPrincipal();
-
-        // 3. If the user has an 'ADMIN' role, they can access any organization
-        if (currentUser.getRoles() != null && currentUser.getRoles().contains("ADMIN")) {
-            return true;
+        User currentUser = getCurrentUser();
+        if (currentUser == null || currentUser.getOrganization() == null) {
+            return false;
         }
 
-        // 4. Otherwise, check if the user's assigned organization matches the requested organization
-        return currentUser.getOrganization() != null && currentUser.getOrganization().getId().equals(organizationId);
+        return organizationId.equals(currentUser.getOrganization().getId());
+    }
+
+
+    /**
+     * Checks if the currently authenticated user belongs to the specified organization.
+     * @param organizationId The ID of the organization being accessed.
+     * @return true only when the user belongs to the same organization.
+     */
+    public boolean isUserInOrganization(Integer organizationId) {
+        return isCurrentUserInOrganizationStrict(organizationId);
     }
 
     /**
@@ -79,6 +83,17 @@ public class SecurityService {
         if (patient == null) return false; // Patient not found
 
         return isUserInOrganization(patient.getOrganization().getId());
+    }
+
+    public boolean canAccessPatientStrict(Integer patientId) {
+        Patient patient = patientRepository.findById(patientId)
+                .orElse(null);
+
+        if (patient == null || patient.getOrganization() == null) {
+            return false;
+        }
+
+        return isCurrentUserInOrganizationStrict(patient.getOrganization().getId());
     }
 
     /**
@@ -142,7 +157,14 @@ public class SecurityService {
     public boolean canAccessEncounter(Integer encounterId) {
         Encounter encounter = encounterRepository.findById(encounterId).orElse(null);
         if (encounter == null) return false;
-        return isUserInOrganization(encounter.getPatient().getOrganization().getId());
+
+        if (encounter.getServiceProvider() != null && encounter.getServiceProvider().getId() != null) {
+            return isUserInOrganization(encounter.getServiceProvider().getId());
+        }
+
+        return encounter.getPatient() != null
+                && encounter.getPatient().getOrganization() != null
+                && isUserInOrganization(encounter.getPatient().getOrganization().getId());
     }
 
     public boolean canAccessSpecimen(Integer specimenId) {

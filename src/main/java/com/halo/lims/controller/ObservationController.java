@@ -93,7 +93,7 @@ public class ObservationController {
      * @return List of finalized ObservationResponses.
      */
     @PostMapping("/approve")
-    @PreAuthorize("hasRole('PATHOLOGIST') and @securityService.canAccessObservationsInBatch(#observationIds)")
+    @PreAuthorize("hasAnyRole('PATHOLOGIST', 'DOCTOR', 'ADMIN') and @securityService.canAccessObservationsInBatch(#observationIds)")
     public ResponseEntity<List<ObservationResponse>> approveObservations(
             @RequestBody List<Integer> observationIds,
             @AuthenticationPrincipal UserDetails userDetails) {

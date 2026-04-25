@@ -1,26 +1,59 @@
 steps:
-  # Build the container image
+  # Build image (no secrets in source)
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'asia-south1-docker.pkg.dev/$PROJECT_ID/hale-lims/hale-lims:$COMMIT_SHA', '.']
-  # Push the container image to Container Registry
+    args:
+      - 'build'
+      - '-f'
+      - '${_DOCKERFILE}'
+      - '-t'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$COMMIT_SHA'
+      - '.'
+  # Push image
   - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'asia-south1-docker.pkg.dev/$PROJECT_ID/hale-lims/hale-lims:$COMMIT_SHA']
-  # Deploy container image to Cloud Run
+    args:
+      - 'push'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$COMMIT_SHA'
+  # Deploy to Cloud Run (secrets only via Secret Manager references)
   - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
     entrypoint: gcloud
     args:
       - 'run'
       - 'deploy'
-      - 'hale-lims'
+      - '${_SERVICE_NAME}'
       - '--image'
-      - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hale-lims/hale-lims:$COMMIT_SHA'
+      - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$COMMIT_SHA'
       - '--region'
-      - 'asia-south1'
+      - '${_REGION}'
       - '--platform'
       - 'managed'
-      - '--allow-unauthenticated'
-      - '--add-cloudsql-instances=halelab-469206:asia-south1:hale-stg'
+      - '--allow-unauthenticated=${_ALLOW_UNAUTHENTICATED}'
+      - '--service-account'
+      - '${_RUNTIME_SA}'
+      - '--add-cloudsql-instances=${_GCP_SQL_INSTANCE}'
+      - '--set-env-vars=SPRING_PROFILES_ACTIVE=${_SPRING_PROFILES_ACTIVE},DB_NAME=${_DB_NAME},DB_USERNAME=${_DB_USERNAME},GCP_SQL_INSTANCE=${_GCP_SQL_INSTANCE},GCP_PROJECT_ID=$PROJECT_ID,GCS_BUCKET_NAME=${_GCS_BUCKET_NAME},REPORT_STORAGE_PROVIDER=${_REPORT_STORAGE_PROVIDER},FLYWAY_ENABLED=${_FLYWAY_ENABLED},JPA_DDL_AUTO=${_JPA_DDL_AUTO},GCP_SECRETMANAGER_ENABLED=true,CORS_ALLOWED_ORIGIN_PATTERNS=${_CORS_ALLOWED_ORIGIN_PATTERNS},INTERNAL_AUTH_MODE=${_INTERNAL_AUTH_MODE},INTERNAL_ALLOWED_SERVICE_ACCOUNTS=${_INTERNAL_ALLOWED_SERVICE_ACCOUNTS}'
+      - '--set-secrets=DB_PASSWORD=${_DB_PASSWORD_SECRET}:latest,JWT_SECRET=${_JWT_SECRET_NAME}:latest'
 images:
-  - 'asia-south1-docker.pkg.dev/$PROJECT_ID/hale-lims/hale-lims:$COMMIT_SHA'
+  - '${_REGION}-docker.pkg.dev/$PROJECT_ID/${_AR_REPO}/${_SERVICE_NAME}:$COMMIT_SHA'
 options:
   logging: CLOUD_LOGGING_ONLY
+substitutions:
+  _REGION: 'asia-south1'
+  _AR_REPO: 'hale-lims'
+  _SERVICE_NAME: 'hale-lims'
+  _DOCKERFILE: 'Dockerfile'
+  _ALLOW_UNAUTHENTICATED: 'true'
+  _RUNTIME_SA: 'lims-backend-sa@PROJECT_ID.iam.gserviceaccount.com'
+  _SPRING_PROFILES_ACTIVE: 'prod,gcp'
+  _DB_NAME: 'lims'
+  _DB_USERNAME: 'lims_app'
+  _GCP_SQL_INSTANCE: 'PROJECT_ID:asia-south1:lims-prod-sql'
+  _GCS_BUCKET_NAME: 'lims-prod-assets-CHANGE_ME'
+  _REPORT_STORAGE_PROVIDER: 'gcs'
+  _FLYWAY_ENABLED: 'true'
+  _JPA_DDL_AUTO: 'validate'
+  _CORS_ALLOWED_ORIGIN_PATTERNS: 'https://lims-web-CHANGE_ME.a.run.app'
+  _INTERNAL_AUTH_MODE: 'oidc'
+  _INTERNAL_ALLOWED_SERVICE_ACCOUNTS: 'phr-backend-sa@PROJECT_ID.iam.gserviceaccount.com'
+  # Secret resource names only (values stay in Secret Manager)
+  _DB_PASSWORD_SECRET: 'lims-db-password'
+  _JWT_SECRET_NAME: 'lims-jwt-secret'

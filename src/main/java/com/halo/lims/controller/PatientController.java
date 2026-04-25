@@ -11,6 +11,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
 
@@ -47,6 +48,18 @@ public class PatientController {
     public ResponseEntity<List<PatientRegistrationResponse>> getPatientsByOrganization(@PathVariable Integer organizationId) {
         List<PatientRegistrationResponse> patients = patientService.getPatientsByOrganization(organizationId);
         return new ResponseEntity<>(patients, HttpStatus.OK);
+    }
+
+    @GetMapping("/phr-lookup")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN')")
+    public ResponseEntity<PatientRegistrationResponse> lookupPatientFromPhr(
+            @RequestParam String mobile,
+            @RequestParam(required = false) String relationship) {
+        return patientService.findPatientByMobile(mobile, relationship)
+                .map(ResponseEntity::ok)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "No patient details found for this mobile number with the specified profile"));
     }
 
     @GetMapping("/by-organization/{organizationId}/search")

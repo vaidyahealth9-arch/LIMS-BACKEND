@@ -2,6 +2,7 @@ package com.halo.lims.controller;
 
 import com.halo.lims.dto.PagedResponse;
 import com.halo.lims.dto.observation.ObservationCreateRequest;
+import com.halo.lims.dto.observation.ObservationHistoryPointResponse;
 import com.halo.lims.dto.observation.ObservationResponse;
 import com.halo.lims.dto.serviceRequest.ServiceRequestCreateRequest;
 import com.halo.lims.dto.serviceRequest.ServiceRequestObservationCreateRequest;
@@ -25,6 +26,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/service-requests")
@@ -43,47 +45,48 @@ public class ServiceRequestController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER') and (@securityService.canAccessEncounter(#request.encounterId) or @securityService.canAccessPatient(#request.patientId))")
     public ResponseEntity<ServiceRequestResponse> createServiceRequest(@Valid @RequestBody ServiceRequestCreateRequest request) {
         ServiceRequestResponse response = serviceRequestService.createServiceRequest(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id:[0-9]+}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessServiceRequest(#id)")
     public ResponseEntity<ServiceRequestResponse> updateServiceRequest(@PathVariable Integer id, @Valid @RequestBody ServiceRequestUpdateRequest request) {
         ServiceRequestResponse response = serviceRequestService.updateServiceRequest(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/{id:[0-9]+}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#id)")
     public ResponseEntity<ServiceRequestResponse> getServiceRequestById(@PathVariable Integer id) {
         ServiceRequestResponse response = serviceRequestService.getServiceRequestById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/by-patient/{patientId:[0-9]+}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessPatient(#patientId)")
     public ResponseEntity<List<ServiceRequestResponse>> getServiceRequestsByPatient(@PathVariable Integer patientId) {
         List<ServiceRequestResponse> responses = serviceRequestService.getServiceRequestsByPatient(patientId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'MANAGER') and #orgId != null and @securityService.isCurrentUserInOrganizationStrict(#orgId)")
     public ResponseEntity<PagedResponse<ServiceRequestResponse>> getPendingServiceRequests(
             @RequestParam(required = false) Integer orgId,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDate startDate,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDate endDate,
+            @RequestParam(defaultValue = "false") boolean includeClosed,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
-        PagedResponse<ServiceRequestResponse> response = serviceRequestService.getPendingServiceRequests(orgId, startDate, endDate, page, size);
+        PagedResponse<ServiceRequestResponse> response = serviceRequestService.getPendingServiceRequests(orgId, startDate, endDate, includeClosed, page, size);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PostMapping("/{id:[0-9]+}/observations")
-    @PreAuthorize("hasRole('TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
     public ResponseEntity<ObservationResponse> createObservationForServiceRequest(
             @PathVariable Integer id,
             @Valid @RequestBody ServiceRequestObservationCreateRequest request,
@@ -107,14 +110,25 @@ public class ServiceRequestController {
     }
 
     @GetMapping("/{serviceRequestId:[0-9]+}/observations")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
     public ResponseEntity<List<ObservationResponse>> getObservationsByServiceRequestId(@PathVariable Integer serviceRequestId) {
         List<ObservationResponse> responses = observationService.getObservationsByServiceRequestId(serviceRequestId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
+    @GetMapping("/{serviceRequestId:[0-9]+}/observations/history")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    public ResponseEntity<Map<String, List<ObservationHistoryPointResponse>>> getHistoricalObservationSeriesByServiceRequestId(
+            @PathVariable Integer serviceRequestId,
+            @RequestParam(defaultValue = "6") int limitPerAnalyte
+    ) {
+        Map<String, List<ObservationHistoryPointResponse>> response =
+                observationService.getHistoricalObservationSeriesByServiceRequestId(serviceRequestId, limitPerAnalyte);
+        return new ResponseEntity<>(response, HttpStatus.OK);
+    }
+
     @GetMapping("/{id:[0-9]+}/analytes")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#id)")
     public ResponseEntity<List<TestAnalytesResponse>> getServiceRequestAnalytes(@PathVariable Integer id) {
         List<TestAnalytesResponse> response = serviceRequestService.getServiceRequestAnalytes(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
