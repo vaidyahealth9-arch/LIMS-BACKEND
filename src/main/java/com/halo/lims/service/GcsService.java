@@ -101,8 +101,8 @@ public class GcsService {
                 .build();
 
         storage.create(blobInfo, content);
-
+ 
         log.info("Uploaded file to GCS: {}/{}", bucketName, objectName);
-        return String.format("https://storage.googleapis.com/%s/%s", bucketName, objectName);
+        return storage.signUrl(blobInfo, 365, java.util.concurrent.TimeUnit.DAYS).toString();
     }
 }
