@@ -143,6 +143,9 @@ public class ReportService {
                     .patient(serviceRequest.getPatient())
                     .encounter(serviceRequest.getEncounter())
                     .status("final")
+                    .effectiveDateTime(OffsetDateTime.now())
+                    .issuedDateTime(OffsetDateTime.now())
+                    .localReportSystem("http://halodiagnostics.com/report")
                     .localReportValue(identifierGenerationService.generateReportValue(serviceRequest.getPatient().getOrganization().getId(), 3))
                     .build();
         }
