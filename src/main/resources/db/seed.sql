@@ -1,20 +1,11 @@
 -- ============================================================
--- LIMS Comprehensive Seed Data (auto-generated from LIMS-Drive)
+-- LIMS Comprehensive Seed Data (Improved & Stabilized)
 -- ============================================================
--- Generated on: 2026-03-27T20:53:46.775597
--- Source: LIMS-Drive test templates
--- Contains: Tests, Analytes, Units, Interpretation Rules, Demo data
---
--- ALL DEMO USERS PASSWORD: techpassword123
---   BCrypt hash: $2a$10$JP3DoBRwEP9FfXd84iRS1e3uB/suq5HYYjG4aABYI9UvCJg8Q5eca
--- ============================================================
-
-
 
 SET search_path TO public;
 
 -- ============================================================
--- TRUNCATE TABLES (child â†’ parent order)
+-- TRUNCATE TABLES (child -> parent order)
 -- ============================================================
 TRUNCATE TABLE diagnostic_report_observations CASCADE;
 TRUNCATE TABLE diagnostic_reports CASCADE;
@@ -40,62 +31,58 @@ TRUNCATE TABLE tests CASCADE;
 TRUNCATE TABLE specimen_types CASCADE;
 TRUNCATE TABLE units CASCADE;
 TRUNCATE TABLE organizations CASCADE;
-ALTER SEQUENCE organizations_id_seq RESTART WITH 1;
-ALTER SEQUENCE units_id_seq RESTART WITH 1;
-ALTER SEQUENCE specimen_types_id_seq RESTART WITH 1;
-ALTER SEQUENCE tests_id_seq RESTART WITH 1;
-ALTER SEQUENCE test_analytes_id_seq RESTART WITH 1;
-ALTER SEQUENCE media_assets_id_seq RESTART WITH 1;
 
-
+-- Reset all sequences
+ALTER SEQUENCE organizations_id_seq RESTART WITH 100;
+ALTER SEQUENCE units_id_seq RESTART WITH 100;
+ALTER SEQUENCE specimen_types_id_seq RESTART WITH 100;
+ALTER SEQUENCE tests_id_seq RESTART WITH 2000;
+ALTER SEQUENCE test_analytes_id_seq RESTART WITH 5000;
+ALTER SEQUENCE practitioners_id_seq RESTART WITH 100;
+ALTER SEQUENCE lims_user_id_seq RESTART WITH 100;
 
 -- ============================================================
 -- UNITS
 -- ============================================================
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1, 'g/dL', 'g/dL', 'Grams per deciliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (2, 'mg/dL', 'mg/dL', 'Milligrams per deciliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (3, 'fL', 'fL', 'Femtoliters', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (4, 'pg', 'pg', 'Picograms', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (5, '10^3/ÂµL', '10*3/uL', 'Thousands per microliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (6, '10^6/ÂµL', '10*6/uL', 'Millions per microliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (7, '%', '%', 'Percentage', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (8, 'mIU/L', 'mIU/L', 'Milli-international units per liter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (9, 'ng/mL', 'ng/mL', 'Nanograms per milliliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (10, 'U/L', 'U/L', 'Units per liter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (11, 'Âµmol/L', 'umol/L', 'Micromoles per liter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (12, 'mmol/L', 'mmol/L', 'Millimoles per liter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (13, 'Âµg/dL', 'ug/dL', 'Micrograms per deciliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (14, 'IU/mL', 'IU/mL', 'International units per milliliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (15, 'mg/L', 'mg/L', 'Milligrams per liter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (16, 'cells/cmm', 'cells/cmm', 'Cells per cubic millimeter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (17, 'cells/ÂµL', 'cells/ÂµL', 'Cells per microliter', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1001, 'mg/L', 'mg/L', 'Unit: mg/L', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1002, 'sec', 'sec', 'Unit: sec', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1003, 'N/A', 'N/A', 'Unit: N/A', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1004, 'mg/dL', 'mg/dL', 'Unit: mg/dL', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1005, 'U/L', 'U/L', 'Unit: U/L', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1006, 'g/dL', 'g/dL', 'Unit: g/dL', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1007, 'mm', 'mm', 'Unit: mm', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1008, 'mmol/L', 'mmol/L', 'Unit: mmol/L', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1009, 'IU/mL', 'IU/mL', 'Unit: IU/mL', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1010, 'days', 'days', 'Unit: days', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1011, 'minutes', 'minutes', 'Unit: minutes', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1012, 'mL', 'mL', 'Unit: mL', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1013, 'million/mL', 'million/mL', 'Unit: million/mL', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1014, 'million/ejaculate', 'million/ejaculate', 'Unit: million/ejaculate', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1015, '%', '%', 'Unit: %', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1016, 'cells/HPF', 'cells/HPF', 'Unit: cells/HPF', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1017, 'EU/dL', 'EU/dL', 'Unit: EU/dL', NOW(), NOW());
-INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES (1018, 'titer', 'titer', 'Unit: titer', NOW(), NOW());
+INSERT INTO units (id, name, ucum_code, description, created_at, updated_at) VALUES 
+(1, 'g/dL', 'g/dL', 'Grams per deciliter', NOW(), NOW()),
+(2, 'mg/dL', 'mg/dL', 'Milligrams per deciliter', NOW(), NOW()),
+(3, 'fL', 'fL', 'Femtoliters', NOW(), NOW()),
+(4, 'pg', 'pg', 'Picograms', NOW(), NOW()),
+(5, '10^3/µL', '10*3/uL', 'Thousands per microliter', NOW(), NOW()),
+(6, '10^6/µL', '10*6/uL', 'Millions per microliter', NOW(), NOW()),
+(7, '%', '%', 'Percentage', NOW(), NOW()),
+(8, 'mIU/L', 'mIU/L', 'Milli-international units per liter', NOW(), NOW()),
+(9, 'ng/mL', 'ng/mL', 'Nanograms per milliliter', NOW(), NOW()),
+(10, 'U/L', 'U/L', 'Units per liter', NOW(), NOW()),
+(11, 'µmol/L', 'umol/L', 'Micromoles per liter', NOW(), NOW()),
+(12, 'mmol/L', 'mmol/L', 'Millimoles per liter', NOW(), NOW()),
+(13, 'µg/dL', 'ug/dL', 'Micrograms per deciliter', NOW(), NOW()),
+(14, 'IU/mL', 'IU/mL', 'International units per milliliter', NOW(), NOW()),
+(15, 'mg/L', 'mg/L', 'Milligrams per liter', NOW(), NOW()),
+(16, 'cells/cmm', 'cells/cmm', 'Cells per cubic millimeter', NOW(), NOW()),
+(17, 'cells/µL', 'cells/uL', 'Cells per microliter', NOW(), NOW()),
+(18, 'sec', 'sec', 'Seconds', NOW(), NOW()),
+(19, 'N/A', 'N/A', 'No Unit', NOW(), NOW()),
+(20, 'mm', 'mm', 'Millimeters', NOW(), NOW()),
+(21, 'days', 'd', 'Days', NOW(), NOW()),
+(22, 'minutes', 'min', 'Minutes', NOW(), NOW()),
+(23, 'mL', 'mL', 'Milliliters', NOW(), NOW()),
+(24, 'million/mL', '10*6/mL', 'Millions per mL', NOW(), NOW()),
+(25, 'million/ejaculate', '10*6/ejac', 'Millions per ejaculate', NOW(), NOW()),
+(26, 'cells/HPF', 'cells/[HPF]', 'Cells per High Power Field', NOW(), NOW()),
+(27, 'EU/dL', 'EU/dL', 'Ehrlich Units per deciliter', NOW(), NOW()),
+(28, 'titer', '{titer}', 'Titer ratio', NOW(), NOW());
 
 -- ============================================================
 -- SPECIMEN TYPES
 -- ============================================================
-INSERT INTO specimen_types (id, name, snomed_code, snomed_system, description, created_at, updated_at) VALUES (1, 'Whole Blood (EDTA)', '420135007', 'http://snomed.info/sct', 'Venous whole blood collected in EDTA (purple top) tube', NOW(), NOW());
-INSERT INTO specimen_types (id, name, snomed_code, snomed_system, description, created_at, updated_at) VALUES (2, 'Serum', '119364003', 'http://snomed.info/sct', 'Serum separated from clotted blood (gold/red top tube)', NOW(), NOW());
-INSERT INTO specimen_types (id, name, snomed_code, snomed_system, description, created_at, updated_at) VALUES (3, 'Plasma (Fluoride)', '119361006', 'http://snomed.info/sct', 'Fluoride plasma for glucose testing (grey top tube)', NOW(), NOW());
-INSERT INTO specimen_types (id, name, snomed_code, snomed_system, description, created_at, updated_at) VALUES (4, 'Urine (Spot)', '122575003', 'http://snomed.info/sct', 'Random spot urine sample in sterile container', NOW(), NOW());
-INSERT INTO specimen_types (id, name, snomed_code, snomed_system, description, created_at, updated_at) VALUES (5, 'Urine (24hr)', '276833005', 'http://snomed.info/sct', '24-hour urine collection', NOW(), NOW());
+INSERT INTO specimen_types (id, name, snomed_code, snomed_system, description, created_at, updated_at) VALUES 
+(1, 'Whole Blood (EDTA)', '420135007', 'http://snomed.info/sct', 'Venous whole blood collected in EDTA', NOW(), NOW()),
+(2, 'Serum', '119364003', 'http://snomed.info/sct', 'Serum separated from clotted blood', NOW(), NOW()),
+(3, 'Plasma (Fluoride)', '119361006', 'http://snomed.info/sct', 'Fluoride plasma for glucose testing', NOW(), NOW()),
+(4, 'Urine (Spot)', '122575003', 'http://snomed.info/sct', 'Random spot urine sample', NOW(), NOW()),
+(5, 'Urine (24hr)', '276833005', 'http://snomed.info/sct', '24-hour urine collection', NOW(), NOW());
 
 -- ============================================================
 -- ORGANIZATION
@@ -104,289 +91,102 @@ INSERT INTO organizations (id, organization_name, org_type, contact_phone, conta
 (1, 'Halo Diagnostics', 'laboratory', '+91-9876543210', 'info@halodiagnostics.com', '42, MG Road', 'Bangalore', 'Karnataka', '560001', 'IND', 'http://halodiagnostics.com/org', 'HALO-001', NOW(), NOW());
 
 -- ============================================================
--- TESTS (from LIMS-Drive templates)
+-- TESTS
 -- ============================================================
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1002, 'ABORH', 'Blood Grouping and Rh(D) Typing', 'ABORH', 'Immunohematology / Blood Bank', 'Standard tube agglutination and/or column agglutination (gel card) technique for ABO and Rh(D) typing with appropriate controls.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1001, 'BTCT', 'Bleeding Time and Clotting Time', 'BTCT', 'Hematology / Coagulation', 'Bleeding Time by Ivy/modified Ivy or template method; Clotting Time by capillary tube/slide method (as per laboratory SOP).', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1004, 'CBCABS', 'Complete Blood Count (CBC) with Absolute Count', 'CBCABS', 'Hematology', 'Automated 5â€‘part hematology analyzer; impedance/optical scatter with cyanide-free Hb method', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1005, 'COAGPRO', 'Coagulation Profile', 'COAGPRO', 'Coagulation / Hematology', 'Automated optical or mechanical clot detection for PT/INR and aPTT; fibrinogen by Clauss or equivalent method, using thromboplastin and aPTT reagents with known ISI/sensitivity, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1003, 'CRP', 'C-Reactive Protein (CRP)', 'CRP', 'Biochemistry / Immunology', 'Quantitative measurement of C-reactive protein by immunoturbidimetry/nephelometry or equivalent immunoassay, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1006, 'DENGPROF', 'Dengue Profile (NS1 Antigen, IgM & IgG Antibodies)', 'DENGPROF', 'Microbiology / Serology', 'Enzyme immunoassay/chemiluminescent immunoassay and/or immunochromatographic rapid tests for Dengue NS1 antigen and Dengue-specific IgM/IgG antibodies, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1007, 'ESR', 'Erythrocyte Sedimentation Rate (ESR)', 'ESR', 'Hematology', 'Automated Westergren-equivalent ESR on hematology analyzer / dedicated ESR analyzer', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1008, 'FBS', 'Fasting Blood Sugar (Fasting Plasma Glucose)', 'FBS', 'Biochemistry', 'Enzymatic glucose assay (hexokinase/glucose oxidaseâ€“peroxidase or equivalent) on automated chemistry analyzer, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1009, 'GOGTT', 'Gestational OGTT (75 g â€“ Pregnancy)', 'GOGTT', 'Biochemistry / Obstetrics-Endocrinology', 'Enzymatic glucose assay (hexokinase/glucose oxidaseâ€“peroxidase or equivalent) on automated chemistry analyzer, performed on fasting, 1-hour and 2-hour samples as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1012, 'HBA1C', 'HbA1c (Glycated Hemoglobin)', 'HBA1C', 'Biochemistry / Endocrinology', 'Quantitative determination of HbA1c by NGSP/DCCT-aligned method (e.g. HPLC, immunoturbidimetric or enzymatic assay), optionally IFCC-traceable, performed on automated analyzer as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1010, 'HBSAG', 'HBsAg (Hepatitis B Surface Antigen)', 'HBSAG', 'Microbiology / Serology', 'Qualitative and/or semi-quantitative detection of hepatitis B surface antigen (HBsAg) by ELISA/CLIA/CMIA or immunochromatographic rapid test, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1011, 'HIVTRI', 'HIV 1 & 2 Antibody Test (TRI-DOT / Rapid)', 'HIVTRI', 'Microbiology / Serology', 'Visual, rapid immunoassay (TRI-DOT or equivalent rapid test) for differential detection of HIV-1 and HIV-2 antibodies (IgG, IgM, IgA) using immobilized antigens, performed as per manufacturer and national algorithm instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1014, 'LFT', 'Liver Function Tests (LFT) Panel', 'LFT', 'Biochemistry / Hepatology', 'Photometric/enzymatic assays on automated clinical chemistry analyzer for transaminases (AST/ALT), alkaline phosphatase, gamma-glutamyl transferase, bilirubin fractions and total protein/albumin, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1013, 'LIPID', 'Lipid Profile', 'LIPID', 'Biochemistry / Cardiology', 'Enzymatic colorimetric assays on automated chemistry analyzer for total cholesterol, triglycerides and HDL cholesterol. LDL cholesterol and VLDL may be calculated using Friedewald or similar formula where valid, or measured directly depending on method. Ratios and non-HDL cholesterol are calculated parameters.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1015, 'MANTOUX', 'Mantoux Test (Tuberculin Skin Test)', 'MANTOUX', 'Microbiology / Serology', 'Intradermal administration of standardized tuberculin PPD and measurement of transverse induration (not erythema) in millimeters at 48â€“72 hours after injection.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1016, 'OGTT', 'Oral Glucose Tolerance Test (OGTT â€“ 75 g)', 'OGTT', 'Biochemistry / Endocrinology', 'Enzymatic glucose assay (hexokinase/glucose oxidaseâ€“peroxidase or equivalent) on automated chemistry analyzer, performed on samples collected at specified time points, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1017, 'PPBS', 'Post-Prandial Blood Sugar (Post-Meal Plasma Glucose)', 'PPBS', 'Biochemistry', 'Enzymatic glucose assay (hexokinase/glucose oxidaseâ€“peroxidase or equivalent) on automated chemistry analyzer, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1018, 'PSMR', 'Peripheral Smear Examination', 'PSMR', 'Hematology', 'Microscopic examination of Leishman / Giemsa / Wright- or equivalent Romanowsky-stained peripheral blood smear under light microscope, with systematic review of RBCs, WBCs and platelets.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1019, 'PTINR', 'Prothrombin Time (PT) with INR', 'PTINR', 'Coagulation / Hematology', 'Automated optical or mechanical clot detection using thromboplastin reagent with known ISI, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1020, 'RBS', 'Random Blood Sugar (Random Plasma Glucose)', 'RBS', 'Biochemistry', 'Enzymatic glucose assay (hexokinase/glucose oxidaseâ€“peroxidase or equivalent) on automated chemistry analyzer, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1022, 'RF', 'Rheumatoid Factor (RF)', 'RF', 'Immunology / Rheumatology', 'Quantitative measurement of rheumatoid factor (usually IgM) by nephelometry/turbidimetry or equivalent immunoassay; some platforms may also provide qualitative screening.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1021, 'RFTEL', 'Renal Function Tests with Electrolytes', 'RFTEL', 'Biochemistry / Nephrology', 'Photometric and enzymatic assays on automated chemistry analyzer for urea, creatinine, uric acid and electrolytes (sodium, potassium, chloride), with calculated BUN and BUN/Creatinine ratio, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1023, 'SEMEN', 'Semen Analysis (Semenogram)', 'SEMEN', 'Pathology / Andrology', 'Macroscopic examination (volume, liquefaction, appearance, colour, viscosity, pH) followed by microscopic examination for sperm concentration, total sperm count per ejaculate, motility (rapid progressive, slow progressive, non-progressive, immotile), morphology (normal and abnormal forms) and additional cells (pus cells, RBCs, epithelial cells, crystals). Chemical tests such as seminal fructose are performed as per laboratory protocol, generally following WHO laboratory manual recommendations.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1024, 'THYROID', 'Thyroid Function Test Profile (T3, T4, TSH)', 'THYROID', 'Biochemistry / Endocrinology', 'Immunoassay-based measurement of total triiodothyronine (T3), total thyroxine (T4) and ultrasensitive thyroid stimulating hormone (TSH) on automated analyzer, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1025, 'URMR', 'Urinalysis - Urine Routine & Microscopy', 'URMR', 'Pathology / Clinical Pathology', 'Physical examination (colour, appearance), chemical analysis by dipstick (pH, specific gravity, protein, glucose, ketone, blood, bilirubin, urobilinogen, nitrite, leucocyte esterase) and microscopic examination of urinary sediment (RBC, pus cells, epithelial cells, casts, crystals, bacteria, yeast) as per laboratory protocol.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1027, 'VB12', 'Vitamin B12 (Cobalamin)', 'VB12', 'Biochemistry / Haematology', 'Quantitative determination of total vitamin B12 (cobalamin) in serum by automated immunoassay or chemiluminescence assay, performed as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1026, 'VDRL', 'VDRL (Non-treponemal Test for Syphilis Screening)', 'VDRL', 'Microbiology / Serology', 'Non-treponemal flocculation test using cardiolipin-lecithin-cholesterol antigen (VDRL/RPR slide test) performed qualitatively and, if reactive, semi-quantitatively by serial dilution as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1028, 'VITD25', 'Vitamin D (25-hydroxy)', 'VITD25', 'Biochemistry / Endocrinology', 'Quantitative measurement of total 25-hydroxy vitamin D [25(OH)D] by immunoassay or LCâ€“MS/MS on automated platform, as per manufacturer instructions.', NOW(), NOW());
-INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES (1029, 'WIDAL', 'Widal Test (Typhoid Fever Serology)', 'WIDAL', 'Microbiology / Serology', 'Semi-quantitative tube agglutination test (with or without slide screening) using standardized O and H antigens of Salmonella Typhi and Salmonella Paratyphi A/B, as per manufacturer instructions.', NOW(), NOW());
+INSERT INTO tests (id, local_code, test_name, loinc_code, department, method, created_at, updated_at) VALUES 
+(1001, 'BTCT', 'Bleeding Time and Clotting Time', 'BTCT', 'Hematology', 'Capillary method', NOW(), NOW()),
+(1002, 'ABORH', 'Blood Grouping and Rh(D) Typing', 'ABORH', 'Immunohematology', 'Gel Card / Tube', NOW(), NOW()),
+(1003, 'CRP', 'C-Reactive Protein (CRP)', 'CRP', 'Biochemistry', 'Nephelometry', NOW(), NOW()),
+(1004, 'CBCABS', 'Complete Blood Count (CBC)', 'CBCABS', 'Hematology', 'Automated 5-part', NOW(), NOW()),
+(1005, 'COAGPRO', 'Coagulation Profile', 'COAGPRO', 'Coagulation', 'Optical clot detection', NOW(), NOW()),
+(1006, 'DENGPROF', 'Dengue Profile', 'DENGPROF', 'Serology', 'ELISA', NOW(), NOW()),
+(1007, 'ESR', 'Erythrocyte Sedimentation Rate', 'ESR', 'Hematology', 'Westergren', NOW(), NOW()),
+(1008, 'FBS', 'Fasting Blood Sugar', 'FBS', 'Biochemistry', 'Hexokinase', NOW(), NOW()),
+(1012, 'HBA1C', 'HbA1c', 'HBA1C', 'Endocrinology', 'HPLC', NOW(), NOW()),
+(1013, 'LIPID', 'Lipid Profile', 'LIPID', 'Biochemistry', 'Photometric', NOW(), NOW()),
+(1014, 'LFT', 'Liver Function Test', 'LFT', 'Biochemistry', 'Photometric', NOW(), NOW()),
+(1017, 'PPBS', 'Post-Prandial Blood Sugar', 'PPBS', 'Biochemistry', 'Hexokinase', NOW(), NOW()),
+(1020, 'RBS', 'Random Blood Sugar', 'RBS', 'Biochemistry', 'Hexokinase', NOW(), NOW()),
+(1021, 'RFTEL', 'Renal Function Tests', 'RFTEL', 'Biochemistry', 'Photometric', NOW(), NOW()),
+(1023, 'SEMEN', 'Semen Analysis', 'SEMEN', 'Pathology', 'Microscopy', NOW(), NOW()),
+(1024, 'THYROID', 'Thyroid Profile', 'THYROID', 'Endocrinology', 'CLIA', NOW(), NOW()),
+(1025, 'URMR', 'Urinalysis', 'URMR', 'Clinical Pathology', 'Microscopy/Dipstick', NOW(), NOW()),
+(1029, 'WIDAL', 'Widal Test', 'WIDAL', 'Serology', 'Tube Agglutination', NOW(), NOW());
 
 -- ============================================================
 -- TEST ANALYTES
 -- ============================================================
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1004, 'APTT', 'Activated Partial Thromboplastin Time (aPTT)', 1005, 'APTT', 1002, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1005, 'FIBRN', 'Fibrinogen', 1005, 'FIBRN', 1004, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1003, 'INR', 'International Normalized Ratio (INR)', 1005, 'INR', 1003, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1002, 'PT', 'Prothrombin Time (PT)', 1005, 'PT', 1002, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1001, 'CRP_QNT', 'C-Reactive Protein â€“ Quantitative', 1003, 'CRP_QNT', 1001, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1008, 'DEN_IGG', 'Dengue IgG Antibody', 1006, 'DEN_IGG', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1007, 'DEN_IGM', 'Dengue IgM Antibody', 1006, 'DEN_IGM', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1006, 'DEN_NS1', 'Dengue NS1 Antigen', 1006, 'DEN_NS1', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1023, 'AG_RATIO', 'Albumin/Globulin Ratio, Serum', 1014, 'AG_RATIO', 1003, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1021, 'ALB', 'Serum Albumin', 1014, 'ALB', 1006, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1019, 'ALP', 'Alkaline Phosphatase (ALP)', 1014, 'ALP', 1005, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1026, 'BIL_DIR', 'Bilirubin Direct', 1014, 'BIL_DIR', 1004, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1027, 'BIL_IND', 'Bilirubin Indirect', 1014, 'BIL_IND', 1004, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1025, 'BIL_TOT', 'Bilirubin Total', 1014, 'BIL_TOT', 1004, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1017, 'GGT', 'Gamma Glutamyl Transferase (GGT)', 1014, 'GGT', 1005, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1022, 'GLOB', 'Globulin, Serum', 1014, 'GLOB', 1006, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1024, 'PROT_TOT', 'Total Protein, Serum', 1014, 'PROT_TOT', 1006, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1020, 'SGOT', 'SGOT (Aspartate Transaminase, AST)', 1014, 'SGOT', 1005, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1018, 'SGPT', 'SGPT (Alanine Transaminase, ALT)', 1014, 'SGPT', 1005, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1009, 'CHOL_TOT', 'Cholesterol - Total', 1013, 'CHOL_TOT', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1011, 'HDL', 'Cholesterol - HDL', 1013, 'HDL', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1012, 'LDL', 'Cholesterol - LDL', 1013, 'LDL', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1015, 'LDL_HDL_RATIO', 'LDL/HDL Ratio', 1013, 'LDL_HDL_RATIO', 1003, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1016, 'NON_HDL', 'Non-HDL Cholesterol', 1013, 'NON_HDL', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1014, 'TC_HDL_RATIO', 'Total Cholesterol/HDL Cholesterol Ratio', 1013, 'TC_HDL_RATIO', 1003, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1010, 'TRIG', 'Triglycerides', 1013, 'TRIG', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1013, 'VLDL', 'Very Low Density Lipoprotein (VLDL)', 1013, 'VLDL', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1028, 'MTX_IND', 'Mantoux Induration Size', 1015, 'MTX_IND', 1007, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1029, 'MTX_INT', 'Mantoux Interpretation / Comment', 1015, 'MTX_INT', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1034, 'PS_COMMENT', 'Overall Interpretation / Comment', 1018, 'PS_COMMENT', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1033, 'PS_PARASITE', 'Malarial Parasite / Hemoparasites', 1018, 'PS_PARASITE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1032, 'PS_PLT', 'Platelets â€“ Morphology and Adequacy', 1018, 'PS_PLT', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1030, 'PS_RBC', 'RBC Morphology', 1018, 'PS_RBC', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1031, 'PS_WBC', 'WBC Morphology and Differential Review', 1018, 'PS_WBC', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1043, 'RF_QNT', 'Rheumatoid Factor â€“ Quantitative', 1022, 'RF_QNT', 1009, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1044, 'RF_QUAL', 'Rheumatoid Factor â€“ Qualitative (if reported)', 1022, 'RF_QUAL', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1037, 'BUN', 'Blood Urea Nitrogen (BUN)', 1021, 'BUN', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1038, 'BUNCR_RATIO', 'BUN/Creatinine Ratio', 1021, 'BUNCR_RATIO', 1003, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1042, 'CL', 'Chloride', 1021, 'CL', 1008, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1035, 'CREAT', 'Serum Creatinine', 1021, 'CREAT', 1004, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1041, 'K', 'Potassium', 1021, 'K', 1008, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1040, 'NA', 'Sodium', 1021, 'NA', 1008, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1039, 'UREA', 'Blood Urea', 1021, 'UREA', 1004, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1036, 'URIC', 'Uric Acid, Serum', 1021, 'URIC', 1004, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1048, 'ABSTINENCE_DAYS', 'Duration of Abstinence', 1023, 'ABSTINENCE_DAYS', 1010, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1064, 'AGGLUTINATION', 'Agglutination', 1023, 'AGGLUTINATION', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1046, 'COLLECTION_AT', 'Collection at (Lab/Outside)', 1023, 'COLLECTION_AT', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1045, 'COLLECTION_TIME', 'Collection Time', 1023, 'COLLECTION_TIME', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1052, 'COLOUR', 'Colour', 1023, 'COLOUR', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1074, 'CRYSTALS_SEM', 'Crystals', 1023, 'CRYSTALS_SEM', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1050, 'EJAC_VOL', 'Ejaculate Volume', 1023, 'EJAC_VOL', 1012, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1073, 'EPITH_SEM', 'Epithelial Cells', 1023, 'EPITH_SEM', 1016, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1047, 'EXAM_TIME', 'Examination Time', 1023, 'EXAM_TIME', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1075, 'FRUCTOSE_QUAL', 'Fructose (Qualitative â€“ Seliwanoff method)', 1023, 'FRUCTOSE_QUAL', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1049, 'LIQUEFACTION_37C', 'Liquefaction at 37Â°C', 1023, 'LIQUEFACTION_37C', 1011, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1066, 'MORPH_ABNORMAL', 'Morphology - Abnormal Forms', 1023, 'MORPH_ABNORMAL', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1067, 'MORPH_ABN_HEAD', 'Abnormal Heads', 1023, 'MORPH_ABN_HEAD', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1068, 'MORPH_ABN_MID', 'Abnormal Mid-pieces', 1023, 'MORPH_ABN_MID', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1069, 'MORPH_ABN_TAIL', 'Abnormal Tails', 1023, 'MORPH_ABN_TAIL', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1065, 'MORPH_NORMAL', 'Morphology - Normal Forms', 1023, 'MORPH_NORMAL', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1070, 'MORPH_RESID_CYTO', 'Excess Residual Cytoplasm', 1023, 'MORPH_RESID_CYTO', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1057, 'MOT_A', 'Rapid Progressive (a)', 1023, 'MOT_A', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1062, 'MOT_AB', 'All Progressive (a+b)', 1023, 'MOT_AB', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1061, 'MOT_ABC', 'Total Motile (a+b+c)', 1023, 'MOT_ABC', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1058, 'MOT_B', 'Slow Progressive (b)', 1023, 'MOT_B', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1059, 'MOT_C', 'Non-Progressive (c)', 1023, 'MOT_C', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1060, 'MOT_D', 'Immotile (d)', 1023, 'MOT_D', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1071, 'PUS_CELLS_SEM', 'Pus Cells', 1023, 'PUS_CELLS_SEM', 1016, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1072, 'RBC_SEM', 'RBC', 1023, 'RBC_SEM', 1016, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1054, 'SEMEN_PH', 'pH (pH paper)', 1023, 'SEMEN_PH', 1003, 'Numeric', 2, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1055, 'SPERM_CONC', 'Total Sperm Concentration', 1023, 'SPERM_CONC', 1013, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1056, 'TOTAL_SPERM', 'Total Sperm per Ejaculate', 1023, 'TOTAL_SPERM', 1014, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1053, 'VISCOSITY', 'Viscosity', 1023, 'VISCOSITY', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1051, 'VISUAL_APPEAR', 'Visual Appearance', 1023, 'VISUAL_APPEAR', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1063, 'VITALITY', 'Vitality (Eosin-Nigrosine stain)', 1023, 'VITALITY', 1015, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1080, 'APPEAR', 'Appearance', 1025, 'APPEAR', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1093, 'BACTERIA', 'Bacteria', 1025, 'BACTERIA', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1094, 'BILIRUBIN_URINE', 'Bilirubin', 1025, 'BILIRUBIN_URINE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1092, 'BLOOD_URINE', 'Blood', 1025, 'BLOOD_URINE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1084, 'CASTS', 'Casts', 1025, 'CASTS', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1079, 'COLOUR', 'Colour', 1025, 'COLOUR', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1085, 'CRYSTALS', 'Crystals', 1025, 'CRYSTALS', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1083, 'EPITH_CELL', 'Epithelial Cell', 1025, 'EPITH_CELL', 1016, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1088, 'GLUCOSE_URINE', 'Urine Glucose', 1025, 'GLUCOSE_URINE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1077, 'KETONE', 'Ketone', 1025, 'KETONE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1091, 'LEU_ESTERASE', 'Leucocyte Esterase', 1025, 'LEU_ESTERASE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1078, 'NITRITE', 'Nitrite', 1025, 'NITRITE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1086, 'PROT_URINE', 'Protein Urine', 1025, 'PROT_URINE', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1082, 'PUS_CELL', 'Pus Cell', 1025, 'PUS_CELL', 1016, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1090, 'RBC', 'Red Blood Cells', 1025, 'RBC', 1016, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1081, 'SP_GRAVITY', 'Specific Gravity', 1025, 'SP_GRAVITY', 1003, 'Numeric', 3, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1087, 'URINE_PH', 'pH for Urine', 1025, 'URINE_PH', 1003, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1076, 'UROBILINOGEN', 'Urobilinogen', 1025, 'UROBILINOGEN', 1017, 'Numeric', 1, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1089, 'YEAST', 'Yeast', 1025, 'YEAST', 1003, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1097, 'AH_TITER', 'S. Paratyphi A H Antibody Titer (AH)', 1029, 'AH_TITER', 1018, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1098, 'BH_TITER', 'S. Paratyphi B H Antibody Titer (BH)', 1029, 'BH_TITER', 1018, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1096, 'TH_TITER', 'S. Typhi H Antibody Titer (TH)', 1029, 'TH_TITER', 1018, 'Numeric', 0, '', false, NOW(), NOW());
-INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES (1095, 'TO_TITER', 'S. Typhi O Antibody Titer (TO)', 1029, 'TO_TITER', 1018, 'Numeric', 0, '', false, NOW(), NOW());
+INSERT INTO test_analytes (id, analyte_code, analyte_name, parent_test_id, loinc_code, unit_id, result_type, decimal_places, biological_ref_interval, is_derived, created_at, updated_at) VALUES 
+(1001, 'BT', 'Bleeding Time', 1001, 'BT', 22, 'Numeric', 0, '2 - 7 min', false, NOW(), NOW()),
+(1002, 'CT', 'Clotting Time', 1001, 'CT', 22, 'Numeric', 0, '8 - 15 min', false, NOW(), NOW()),
+(1003, 'ABO', 'ABO Group', 1002, 'ABO', 19, 'String', 0, '', false, NOW(), NOW()),
+(1004, 'RH', 'Rh Factor', 1002, 'RH', 19, 'String', 0, '', false, NOW(), NOW()),
+(1005, 'HB', 'Hemoglobin', 1004, 'HB', 1, 'Numeric', 1, '12.0 - 17.5 g/dL', false, NOW(), NOW()),
+(1006, 'WBC', 'WBC Count', 1004, 'WBC', 5, 'Numeric', 2, '4.0 - 11.0 10^3/µL', false, NOW(), NOW()),
+(1007, 'RBC', 'RBC Count', 1004, 'RBC', 6, 'Numeric', 2, '4.1 - 5.9 10^6/µL', false, NOW(), NOW()),
+(1008, 'PLT', 'Platelet Count', 1004, 'PLT', 5, 'Numeric', 0, '150 - 450 10^3/µL', false, NOW(), NOW()),
+(1009, 'NEUT', 'Neutrophils', 1004, 'NEUT', 7, 'Numeric', 1, '40 - 60 %', false, NOW(), NOW()),
+(1010, 'LYMPH', 'Lymphocytes', 1004, 'LYMPH', 7, 'Numeric', 1, '20 - 40 %', false, NOW(), NOW()),
+(1011, 'BIL_TOT', 'Bilirubin Total', 1014, 'BIL_TOT', 2, 'Numeric', 2, '0.1 - 1.2 mg/dL', false, NOW(), NOW()),
+(1012, 'SGPT', 'SGPT (ALT)', 1014, 'SGPT', 10, 'Numeric', 0, '7 - 40 U/L', false, NOW(), NOW()),
+(1013, 'ALB', 'Albumin', 1014, 'ALB', 1, 'Numeric', 1, '3.5 - 5.0 g/dL', false, NOW(), NOW()),
+(1014, 'CHOL', 'Total Cholesterol', 1013, 'CHOL', 2, 'Numeric', 0, '< 200 mg/dL', false, NOW(), NOW()),
+(1015, 'TRIG', 'Triglycerides', 1013, 'TRIG', 2, 'Numeric', 0, '< 150 mg/dL', false, NOW(), NOW()),
+(1016, 'T3', 'Triiodothyronine (T3)', 1024, 'T3', 9, 'Numeric', 2, '0.8 - 2.0 ng/mL', false, NOW(), NOW()),
+(1017, 'T4', 'Thyroxine (T4)', 1024, 'T4', 13, 'Numeric', 1, '5.0 - 12.0 µg/dL', false, NOW(), NOW()),
+(1018, 'TSH', 'TSH', 1024, 'TSH', 8, 'Numeric', 3, '0.4 - 4.0 mIU/L', false, NOW(), NOW()),
+(1019, 'FBS', 'Fasting Blood Sugar', 1008, 'FBS', 2, 'Numeric', 0, '70 - 100 mg/dL', false, NOW(), NOW()),
+(1020, 'PPBS', 'Post-Prandial Sugar', 1017, 'PPBS', 2, 'Numeric', 0, '< 140 mg/dL', false, NOW(), NOW()),
+(1021, 'RBS', 'Random Blood Sugar', 1020, 'RBS', 2, 'Numeric', 0, '70 - 140 mg/dL', false, NOW(), NOW());
 
 -- ============================================================
 -- PRACTITIONERS, USERS & ROLES
 -- ============================================================
-INSERT INTO practitioners (id, first_name, last_name, gender, date_of_birth, created_at, updated_at) VALUES 
-(1, 'Admin', 'User', 'M', '1980-01-01', NOW(), NOW()),
-(2, 'Doctor', 'Demo', 'M', '1985-03-15', NOW(), NOW()),
-(3, 'Lab', 'Technician', 'F', '1990-06-20', NOW(), NOW());
+INSERT INTO practitioners (id, first_name, last_name, gender, date_of_birth, local_identifier_system, local_identifier_value, created_at, updated_at) VALUES 
+(1, 'Admin', 'User', 'M', '1980-01-01', 'http://halodiagnostics.com/prac', 'PRAC-001', NOW(), NOW()),
+(2, 'Doctor', 'Demo', 'M', '1985-03-15', 'http://halodiagnostics.com/prac', 'PRAC-002', NOW(), NOW()),
+(3, 'Lab', 'Technician', 'F', '1990-06-20', 'http://halodiagnostics.com/prac', 'PRAC-003', NOW(), NOW());
 
-INSERT INTO lims_user (id, username, password_hash, is_active, organization_id, practitioner_id, created_at, updated_at) VALUES 
+INSERT INTO lims_user (id, username, password, is_active, organization_id, practitioner_id, created_at, updated_at) VALUES 
 (1, 'admin', '$2a$10$JP3DoBRwEP9FfXd84iRS1e3uB/suq5HYYjG4aABYI9UvCJg8Q5eca', true, 1, 1, NOW(), NOW()),
 (2, 'doctor', '$2a$10$JP3DoBRwEP9FfXd84iRS1e3uB/suq5HYYjG4aABYI9UvCJg8Q5eca', true, 1, 2, NOW(), NOW()),
 (3, 'technician', '$2a$10$JP3DoBRwEP9FfXd84iRS1e3uB/suq5HYYjG4aABYI9UvCJg8Q5eca', true, 1, 3, NOW(), NOW());
 
-INSERT INTO lims_user_roles (lims_user_id, role) VALUES 
-(1, 'ROLE_ADMIN'),
-(2, 'ROLE_DOCTOR'),
-(3, 'ROLE_TECHNICIAN');
+INSERT INTO lims_user_roles (user_id, role) VALUES 
+(1, 'ADMIN'), (2, 'DOCTOR'), (3, 'TECHNICIAN');
 
 -- ============================================================
--- ORGANIZATION TESTS (enable all tests for lab)
+-- ORGANIZATION MAPPINGS
 -- ============================================================
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1002, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1001, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1004, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1005, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1003, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1006, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1007, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1008, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1009, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1012, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1010, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1011, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1014, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1013, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1015, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1016, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1017, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1018, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1019, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1020, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1022, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1021, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1023, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1024, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1025, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1027, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1026, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1028, true, 500.00, 1, 1, NOW(), NOW());
-INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, specimen_type_id, default_number_of_specimens, created_at, updated_at) VALUES (1, 1029, true, 500.00, 1, 1, NOW(), NOW());
+INSERT INTO organization_tests (organization_id, test_id, is_enabled, price, created_at, updated_at)
+SELECT 1, id, true, 500.00, NOW(), NOW() FROM tests;
+
+INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at)
+SELECT 1, id, result_type, decimal_places, biological_ref_interval, 0.00, analyte_code, NOW(), NOW() FROM test_analytes;
 
 -- ============================================================
--- ORGANIZATION TEST ANALYTES (link all analytes to tests)
+-- REFERENCE RANGES
 -- ============================================================
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1004, 'Numeric', 1, '', NULL, 'APTT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1005, 'Numeric', 0, '', NULL, 'FIBRN', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1003, 'Numeric', 2, '', NULL, 'INR', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1002, 'Numeric', 1, '', NULL, 'PT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1001, 'Numeric', 1, '', NULL, 'CRP_QNT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1008, 'Numeric', 0, '', NULL, 'DEN_IGG', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1007, 'Numeric', 0, '', NULL, 'DEN_IGM', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1006, 'Numeric', 0, '', NULL, 'DEN_NS1', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1023, 'Numeric', 2, '', NULL, 'AG_RATIO', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1021, 'Numeric', 2, '', NULL, 'ALB', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1019, 'Numeric', 0, '', NULL, 'ALP', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1026, 'Numeric', 2, '', NULL, 'BIL_DIR', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1027, 'Numeric', 2, '', NULL, 'BIL_IND', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1025, 'Numeric', 2, '', NULL, 'BIL_TOT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1017, 'Numeric', 0, '', NULL, 'GGT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1022, 'Numeric', 2, '', NULL, 'GLOB', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1024, 'Numeric', 2, '', NULL, 'PROT_TOT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1020, 'Numeric', 0, '', NULL, 'SGOT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1018, 'Numeric', 0, '', NULL, 'SGPT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1009, 'Numeric', 1, '', NULL, 'CHOL_TOT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1011, 'Numeric', 1, '', NULL, 'HDL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1012, 'Numeric', 1, '', NULL, 'LDL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1015, 'Numeric', 2, '', NULL, 'LDL_HDL_RATIO', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1016, 'Numeric', 1, '', NULL, 'NON_HDL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1014, 'Numeric', 2, '', NULL, 'TC_HDL_RATIO', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1010, 'Numeric', 1, '', NULL, 'TRIG', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1013, 'Numeric', 1, '', NULL, 'VLDL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1028, 'Numeric', 0, '', NULL, 'MTX_IND', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1029, 'Numeric', 0, '', NULL, 'MTX_INT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1034, 'Numeric', 0, '', NULL, 'PS_COMMENT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1033, 'Numeric', 0, '', NULL, 'PS_PARASITE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1032, 'Numeric', 0, '', NULL, 'PS_PLT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1030, 'Numeric', 0, '', NULL, 'PS_RBC', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1031, 'Numeric', 0, '', NULL, 'PS_WBC', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1043, 'Numeric', 1, '', NULL, 'RF_QNT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1044, 'Numeric', 0, '', NULL, 'RF_QUAL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1037, 'Numeric', 1, '', NULL, 'BUN', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1038, 'Numeric', 1, '', NULL, 'BUNCR_RATIO', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1042, 'Numeric', 1, '', NULL, 'CL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1035, 'Numeric', 2, '', NULL, 'CREAT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1041, 'Numeric', 1, '', NULL, 'K', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1040, 'Numeric', 1, '', NULL, 'NA', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1039, 'Numeric', 1, '', NULL, 'UREA', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1036, 'Numeric', 2, '', NULL, 'URIC', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1048, 'Numeric', 1, '', NULL, 'ABSTINENCE_DAYS', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1064, 'Numeric', 0, '', NULL, 'AGGLUTINATION', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1046, 'Numeric', 0, '', NULL, 'COLLECTION_AT', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1045, 'Numeric', 0, '', NULL, 'COLLECTION_TIME', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1052, 'Numeric', 0, '', NULL, 'COLOUR', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1074, 'Numeric', 0, '', NULL, 'CRYSTALS_SEM', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1050, 'Numeric', 1, '', NULL, 'EJAC_VOL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1073, 'Numeric', 0, '', NULL, 'EPITH_SEM', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1047, 'Numeric', 0, '', NULL, 'EXAM_TIME', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1075, 'Numeric', 0, '', NULL, 'FRUCTOSE_QUAL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1049, 'Numeric', 0, '', NULL, 'LIQUEFACTION_37C', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1066, 'Numeric', 0, '', NULL, 'MORPH_ABNORMAL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1067, 'Numeric', 0, '', NULL, 'MORPH_ABN_HEAD', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1068, 'Numeric', 0, '', NULL, 'MORPH_ABN_MID', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1069, 'Numeric', 0, '', NULL, 'MORPH_ABN_TAIL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1065, 'Numeric', 0, '', NULL, 'MORPH_NORMAL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1070, 'Numeric', 0, '', NULL, 'MORPH_RESID_CYTO', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1057, 'Numeric', 0, '', NULL, 'MOT_A', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1062, 'Numeric', 0, '', NULL, 'MOT_AB', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1061, 'Numeric', 0, '', NULL, 'MOT_ABC', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1058, 'Numeric', 0, '', NULL, 'MOT_B', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1059, 'Numeric', 0, '', NULL, 'MOT_C', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1060, 'Numeric', 0, '', NULL, 'MOT_D', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1071, 'Numeric', 0, '', NULL, 'PUS_CELLS_SEM', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1072, 'Numeric', 0, '', NULL, 'RBC_SEM', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1054, 'Numeric', 2, '', NULL, 'SEMEN_PH', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1055, 'Numeric', 1, '', NULL, 'SPERM_CONC', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1056, 'Numeric', 1, '', NULL, 'TOTAL_SPERM', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1053, 'Numeric', 0, '', NULL, 'VISCOSITY', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1051, 'Numeric', 0, '', NULL, 'VISUAL_APPEAR', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1063, 'Numeric', 0, '', NULL, 'VITALITY', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1080, 'Numeric', 0, '', NULL, 'APPEAR', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1093, 'Numeric', 0, '', NULL, 'BACTERIA', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1094, 'Numeric', 0, '', NULL, 'BILIRUBIN_URINE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1092, 'Numeric', 0, '', NULL, 'BLOOD_URINE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1084, 'Numeric', 0, '', NULL, 'CASTS', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1079, 'Numeric', 0, '', NULL, 'COLOUR', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1085, 'Numeric', 0, '', NULL, 'CRYSTALS', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1083, 'Numeric', 0, '', NULL, 'EPITH_CELL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1088, 'Numeric', 0, '', NULL, 'GLUCOSE_URINE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1077, 'Numeric', 0, '', NULL, 'KETONE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1091, 'Numeric', 0, '', NULL, 'LEU_ESTERASE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1078, 'Numeric', 0, '', NULL, 'NITRITE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1086, 'Numeric', 0, '', NULL, 'PROT_URINE', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1082, 'Numeric', 0, '', NULL, 'PUS_CELL', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1090, 'Numeric', 0, '', NULL, 'RBC', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1081, 'Numeric', 3, '', NULL, 'SP_GRAVITY', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1087, 'Numeric', 1, '', NULL, 'URINE_PH', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1076, 'Numeric', 1, '', NULL, 'UROBILINOGEN', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1089, 'Numeric', 0, '', NULL, 'YEAST', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1097, 'Numeric', 0, '', NULL, 'AH_TITER', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1098, 'Numeric', 0, '', NULL, 'BH_TITER', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1096, 'Numeric', 0, '', NULL, 'TH_TITER', NOW(), NOW());
-INSERT INTO organization_test_analytes (organization_id, test_analyte_id, result_type, decimal_places, biological_ref_interval, price, code, created_at, updated_at) VALUES (1, 1095, 'Numeric', 0, '', NULL, 'TO_TITER', NOW(), NOW());
+INSERT INTO reference_ranges (id, analyte_id, gender, min_age_years, max_age_years, low_value, high_value, text_range, interpretation_code, created_at, updated_at) VALUES 
+(1, 1001, 'all', 0, 120, 2, 7, '2 - 7 min', 'N', NOW(), NOW()),
+(2, 1002, 'all', 0, 120, 8, 15, '8 - 15 min', 'N', NOW(), NOW()),
+(3, 1005, 'male', 18, 120, 13.5, 17.5, '13.5 - 17.5 g/dL', 'N', NOW(), NOW()),
+(4, 1005, 'female', 18, 120, 12.0, 15.5, '12.0 - 15.5 g/dL', 'N', NOW(), NOW()),
+(5, 1006, 'all', 0, 120, 4.0, 11.0, '4.0 - 11.0 10^3/µL', 'N', NOW(), NOW()),
+(6, 1007, 'male', 18, 120, 4.5, 5.9, '4.5 - 5.9 10^6/µL', 'N', NOW(), NOW()),
+(7, 1007, 'female', 18, 120, 4.1, 5.1, '4.1 - 5.1 10^6/µL', 'N', NOW(), NOW()),
+(8, 1008, 'all', 0, 120, 150, 450, '150 - 450 10^3/µL', 'N', NOW(), NOW()),
+(9, 1009, 'all', 0, 120, 40, 60, '40 - 60 %', 'N', NOW(), NOW()),
+(10, 1010, 'all', 0, 120, 20, 40, '20 - 40 %', 'N', NOW(), NOW()),
+(11, 1011, 'all', 0, 120, 0.1, 1.2, '0.1 - 1.2 mg/dL', 'N', NOW(), NOW()),
+(12, 1012, 'male', 0, 120, 10, 40, '10 - 40 U/L', 'N', NOW(), NOW()),
+(13, 1012, 'female', 0, 120, 7, 35, '7 - 35 U/L', 'N', NOW(), NOW()),
+(14, 1013, 'all', 0, 120, 3.5, 5.0, '3.5 - 5.0 g/dL', 'N', NOW(), NOW()),
+(15, 1014, 'all', 0, 120, 0, 200, '< 200 mg/dL', 'N', NOW(), NOW()),
+(16, 1015, 'all', 0, 120, 0, 150, '< 150 mg/dL', 'N', NOW(), NOW()),
+(17, 1016, 'all', 0, 120, 0.8, 2.0, '0.8 - 2.0 ng/mL', 'N', NOW(), NOW()),
+(18, 1017, 'all', 0, 120, 5.0, 12.0, '5.0 - 12.0 µg/dL', 'N', NOW(), NOW()),
+(19, 1018, 'all', 0, 120, 0.4, 4.0, '0.4 - 4.0 mIU/L', 'N', NOW(), NOW()),
+(20, 1019, 'all', 0, 120, 70, 100, '70 - 100 mg/dL', 'N', NOW(), NOW()),
+(21, 1020, 'all', 0, 120, 70, 140, '< 140 mg/dL', 'N', NOW(), NOW()),
+(22, 1021, 'all', 0, 120, 70, 140, '70 - 140 mg/dL', 'N', NOW(), NOW());
