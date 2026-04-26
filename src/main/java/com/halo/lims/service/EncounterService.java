@@ -24,14 +24,20 @@ import com.halo.lims.repository.SpecimenRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+
+import jakarta.persistence.criteria.Join;
+import jakarta.persistence.criteria.JoinType;
+import jakarta.persistence.criteria.Predicate;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -250,13 +256,53 @@ public class EncounterService {
             String patientName,
             String mrnId,
             Pageable pageable) {
-        
-        OffsetDateTime start = (startDate != null) ? startDate.atStartOfDay().atOffset(ZoneOffset.UTC) : null;
-        OffsetDateTime end = (endDate != null) ? endDate.atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC) : null;
 
-        Page<Encounter> encounterPage = encounterRepository.searchEncounters(
-                organizationId, start, end, patientName, mrnId, pageable);
-        
+        // Build a dynamic Specification to avoid the PostgreSQL bytea type-mismatch
+        // that occurs when null String params are passed to a JPQL LIKE clause.
+        // Null predicates are simply omitted — no incorrect type is ever sent.
+        Specification<Encounter> spec = (root, query, cb) -> {
+            List<Predicate> predicates = new ArrayList<>();
+
+            // Join to patient and organisation once
+            Join<Object, Object> patient = root.join("patient", JoinType.INNER);
+            Join<Object, Object> org = patient.join("organization", JoinType.INNER);
+
+            // Always filter by organisation
+            predicates.add(cb.equal(org.get("id"), organizationId));
+
+            // Date range — convert LocalDate to OffsetDateTime boundaries
+            if (startDate != null) {
+                OffsetDateTime start = startDate.atStartOfDay().atOffset(ZoneOffset.UTC);
+                predicates.add(cb.greaterThanOrEqualTo(root.get("startTime"), start));
+            }
+            if (endDate != null) {
+                OffsetDateTime end = endDate.atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC);
+                predicates.add(cb.lessThanOrEqualTo(root.get("startTime"), end));
+            }
+
+            // Patient name LIKE (case-insensitive) — only added when non-null/non-blank
+            if (patientName != null && !patientName.isBlank()) {
+                String pattern = "%" + patientName.toLowerCase() + "%";
+                predicates.add(
+                    cb.like(
+                        cb.lower(
+                            cb.concat(cb.concat(patient.get("firstName"), " "), patient.get("lastName"))
+                        ),
+                        pattern
+                    )
+                );
+            }
+
+            // MRN LIKE — only added when non-null/non-blank
+            if (mrnId != null && !mrnId.isBlank()) {
+                String pattern = "%" + mrnId + "%";
+                predicates.add(cb.like(patient.get("localMrnValue"), pattern));
+            }
+
+            return cb.and(predicates.toArray(new Predicate[0]));
+        };
+
+        Page<Encounter> encounterPage = encounterRepository.findAll(spec, pageable);
         return mapToPagedEncounterListResponse(encounterPage);
     }
 
