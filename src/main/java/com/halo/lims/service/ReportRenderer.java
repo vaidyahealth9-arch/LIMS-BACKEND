@@ -1,7 +1,9 @@
 package com.halo.lims.service;
 
 import com.halo.lims.dto.report.DiagnosticReportDTO;
+import com.openhtmltopdf.outputdevice.helper.BaseRendererBuilder;
 import com.openhtmltopdf.pdfboxout.PdfRendererBuilder;
+import com.openhtmltopdf.svgsupport.BatikSVGDrawer;
 import org.springframework.stereotype.Service;
 import org.thymeleaf.TemplateEngine;
 import org.thymeleaf.context.Context;
@@ -34,6 +36,8 @@ public class ReportRenderer {
             try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()) {
                 PdfRendererBuilder builder = new PdfRendererBuilder();
                 builder.useFastMode();
+                builder.useSVGDrawer(new BatikSVGDrawer());
+                builder.useDefaultPageSize(210, 297, BaseRendererBuilder.PageSizeUnits.MM);
                 builder.withHtmlContent(html, null);
                 builder.toStream(outputStream);
                 builder.run();

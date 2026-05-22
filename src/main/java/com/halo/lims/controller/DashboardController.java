@@ -20,7 +20,7 @@ public class DashboardController {
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST')")
     public ResponseEntity<DashboardResponse> getDashboardData(
             @RequestParam(name = "days", defaultValue = "7") int days
     ) {

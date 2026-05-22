@@ -1,5 +1,6 @@
 package com.halo.lims.controller;
 
+import com.halo.lims.dto.organization.test.BulkOrganizationTestPriceUpdateRequest;
 import com.halo.lims.dto.organization.test.OrganizationTestRequest;
 import com.halo.lims.dto.organization.test.OrganizationTestResponse;
 import com.halo.lims.service.OrganizationTestService;
@@ -23,13 +24,13 @@ public class OrganizationTestController {
 
     /**
      * Adds a test to an organization's catalog or updates an existing entry (enablement, price).
-     * Accessible by ADMIN or MANAGER roles for their respective organization.
+    * Accessible by ADMIN roles for their respective organization.
      * @param organizationId The ID of the organization.
      * @param request The DTO with test details.
      * @return The created/updated OrganizationTestResponse.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<OrganizationTestResponse> addOrUpdateOrganizationTest(
             @PathVariable Integer organizationId,
             @Valid @RequestBody OrganizationTestRequest request) {
@@ -45,7 +46,7 @@ public class OrganizationTestController {
      * @return The OrganizationTestResponse.
      */
     @GetMapping("/{testId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<OrganizationTestResponse> getOrganizationTest(
             @PathVariable Integer organizationId,
             @PathVariable Integer testId) {
@@ -55,14 +56,30 @@ public class OrganizationTestController {
 
     /**
      * Retrieves all test entries (enabled or disabled) for a specific organization.
-     * Accessible by ADMIN or MANAGER roles for their respective organization.
+    * Accessible by ADMIN roles for their respective organization.
      * @param organizationId The ID of the organization.
      * @return A list of OrganizationTestResponses.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<List<OrganizationTestResponse>> getAllOrganizationTests(@PathVariable Integer organizationId) {
         List<OrganizationTestResponse> responses = organizationTestService.getAllOrganizationTests(organizationId);
+        return new ResponseEntity<>(responses, HttpStatus.OK);
+    }
+
+    /**
+     * Bulk-updates prices for selected tests in the organization catalog.
+     */
+    @PutMapping("/prices")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
+    public ResponseEntity<List<OrganizationTestResponse>> bulkUpdateOrganizationTestPrices(
+            @PathVariable Integer organizationId,
+            @Valid @RequestBody BulkOrganizationTestPriceUpdateRequest request) {
+        List<OrganizationTestResponse> responses = organizationTestService.bulkUpdateOrganizationTestPrices(
+                organizationId,
+                request.getTestIds(),
+                request.getPrice()
+        );
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
@@ -73,7 +90,7 @@ public class OrganizationTestController {
      * @return A list of OrganizationTestResponses for enabled tests.
      */
     @GetMapping("/enabled")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'RECEPTIONIST', 'TECHNICIAN', 'DOCTOR') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN', 'DOCTOR') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<List<OrganizationTestResponse>> getEnabledOrganizationTests(@PathVariable Integer organizationId) {
         List<OrganizationTestResponse> responses = organizationTestService.getEnabledOrganizationTests(organizationId);
         return new ResponseEntity<>(responses, HttpStatus.OK);

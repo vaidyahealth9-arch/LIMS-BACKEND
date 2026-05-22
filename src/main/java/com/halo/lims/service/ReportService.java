@@ -138,16 +138,15 @@ public class ReportService {
         byte[] pdf = buildUnifiedPdfReport(serviceRequestId, withHeader, normalizedReportType);
         
         if (report == null) {
-            report = DiagnosticReport.builder()
-                    .serviceRequest(serviceRequest)
-                    .patient(serviceRequest.getPatient())
-                    .encounter(serviceRequest.getEncounter())
-                    .status("final")
-                    .effectiveDateTime(OffsetDateTime.now())
-                    .issuedDateTime(OffsetDateTime.now())
-                    .localReportSystem("http://halodiagnostics.com/report")
-                    .localReportValue(identifierGenerationService.generateReportValue(serviceRequest.getPatient().getOrganization().getId(), 3))
-                    .build();
+            report = new DiagnosticReport();
+            report.setServiceRequest(serviceRequest);
+            report.setPatient(serviceRequest.getPatient());
+            report.setEncounter(serviceRequest.getEncounter());
+            report.setStatus("final");
+            report.setEffectiveDateTime(OffsetDateTime.now());
+            report.setIssuedDateTime(OffsetDateTime.now());
+            report.setLocalReportSystem("local://reports");
+            report.setLocalReportValue(identifierGenerationService.generateReportValue(serviceRequest.getPatient().getOrganization().getId(), 3));
         }
 
         String objectName = String.format("reports/%s/%s_%s.pdf", 

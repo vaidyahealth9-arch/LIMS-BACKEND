@@ -40,14 +40,14 @@ public class SpecimenController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN', 'DOCTOR', 'MANAGER') and @securityService.canAccessSpecimen(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN', 'DOCTOR') and @securityService.canAccessSpecimen(#id)")
     public ResponseEntity<SpecimenResponse> getSpecimenById(@PathVariable Integer id) {
         SpecimenResponse response = specimenService.getSpecimenById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/by-service-request/{serviceRequestId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN', 'DOCTOR', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'TECHNICIAN', 'DOCTOR') and @securityService.canAccessServiceRequest(#serviceRequestId)")
     public ResponseEntity<List<SpecimenResponse>> getSpecimensByServiceRequest(@PathVariable Integer serviceRequestId) {
         List<SpecimenResponse> responses = specimenService.getSpecimensByServiceRequest(serviceRequestId);
         return new ResponseEntity<>(responses, HttpStatus.OK);

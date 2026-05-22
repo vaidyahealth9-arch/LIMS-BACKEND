@@ -11,9 +11,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.LocalDate;
 import java.time.OffsetDateTime;
-import java.time.Period;
 import java.util.*;
 import java.util.stream.Collectors;
 import com.halo.lims.dto.observation.ObservationHistoryPointResponse;
@@ -149,9 +147,6 @@ public class ObservationService {
             obs.setStatus("final");
             obs.setIssuedDateTime(OffsetDateTime.now());
             obs.setPerformer(pathologist); // Record the approving pathologist
-            
-            // Re-apply reference range interpretation on finalization to ensure accuracy
-            applyReferenceRangeInterpretation(obs);
         }
 
         List<Observation> saved = observationRepository.saveAll(observations);
@@ -164,20 +159,6 @@ public class ObservationService {
                 .forEach(e -> promoteEncounterIfAllObservationsFinal(e, pathologist));
 
         return saved.stream().map(this::mapToResponse).collect(Collectors.toList());
-    }
-
-    @Transactional
-    public int repairAllObservations() {
-        log.info("Starting batch repair of all observations (re-applying reference ranges)");
-        List<Observation> all = observationRepository.findAll();
-        int count = 0;
-        for (Observation obs : all) {
-            applyReferenceRangeInterpretation(obs);
-            count++;
-        }
-        observationRepository.saveAll(all);
-        log.info("Successfully repaired {} observations", count);
-        return count;
     }
 
     private void promoteEncounterIfAllObservationsFinal(Encounter encounter, Practitioner approver) {
@@ -258,69 +239,63 @@ public class ObservationService {
     }
 
     public List<ObservationResponse> getObservationsByServiceRequestId(Integer serviceRequestId) {
-        return observationRepository.findByServiceRequestId(serviceRequestId).stream()
-                .map(this::mapToResponse)
+        // Use the method that eagerly loads reference ranges to avoid lazy loading issues
+        return observationRepository.findByServiceRequestIdWithReferences(serviceRequestId).stream()
+                .map(obs -> {
+                    // Fallback: ensure reference ranges are populated for display if not already loaded
+                    if (obs.getReferenceRange() == null && obs.getAnalyte() != null) {
+                        List<ReferenceRange> ranges = referenceRangeRepository.findByAnalyteId(obs.getAnalyte().getId());
+                        if (!ranges.isEmpty()) {
+                            // Use the first available reference range for display
+                            obs.setReferenceRange(ranges.get(0));
+                        }
+                    }
+                    return mapToResponse(obs);
+                })
                 .collect(Collectors.toList());
     }
 
     public ObservationResponse getObservationById(Integer id) {
-        return observationRepository.findById(id)
-                .map(this::mapToResponse)
+        Observation obs = observationRepository.findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("Observation not found"));
+        
+        // Ensure reference ranges are populated for display
+        if (obs.getReferenceRange() == null && obs.getAnalyte() != null) {
+            List<ReferenceRange> ranges = referenceRangeRepository.findByAnalyteId(obs.getAnalyte().getId());
+            if (!ranges.isEmpty()) {
+                obs.setReferenceRange(ranges.get(0));
+            }
+        }
+        
+        return mapToResponse(obs);
     }
 
     private void applyReferenceRangeInterpretation(Observation obs) {
-        if (obs.getValueNumeric() == null) return;
-
+        // Get all reference ranges for this analyte
         List<ReferenceRange> ranges = referenceRangeRepository.findByAnalyteId(obs.getAnalyte().getId());
+        
         if (ranges.isEmpty()) {
-            log.debug("No reference ranges found for analyte: {}", obs.getAnalyte().getAnalyteName());
+            // No reference ranges defined for this analyte
             return;
         }
-
-        Patient patient = obs.getPatient();
-        String patientGender = patient.getGender() != null ? patient.getGender().toLowerCase() : "unknown";
-        int patientAge = getPatientAgeYears(patient);
-
-        ReferenceRange bestMatch = null;
-
-        for (ReferenceRange range : ranges) {
-            // 1. Gender Match
-            String rangeGender = range.getGender() != null ? range.getGender().toLowerCase() : "all";
-            boolean genderMatches = "all".equals(rangeGender) || rangeGender.equals(patientGender);
-            if (!genderMatches) continue;
-
-            // 2. Age Match
-            boolean ageMatches = true;
-            if (range.getMinAgeYears() != null && patientAge < range.getMinAgeYears()) ageMatches = false;
-            if (range.getMaxAgeYears() != null && patientAge > range.getMaxAgeYears()) ageMatches = false;
-            if (!ageMatches) continue;
-
-            // If we found a match, use it. We prefer specific matches over "all".
-            bestMatch = range;
-            break;
+        
+        // Use the first reference range (primary range for this analyte)
+        ReferenceRange primaryRange = ranges.get(0);
+        obs.setReferenceRange(primaryRange);
+        
+        // Only determine interpretation if we have a numeric value
+        if (obs.getValueNumeric() == null) {
+            return;
         }
-
-        if (bestMatch != null) {
-            obs.setReferenceRange(bestMatch);
-            
-            Double val = obs.getValueNumeric().doubleValue();
-            if (bestMatch.getLowValue() != null && val < bestMatch.getLowValue().doubleValue()) {
-                obs.setInterpretationCode("L");
-            } else if (bestMatch.getHighValue() != null && val > bestMatch.getHighValue().doubleValue()) {
-                obs.setInterpretationCode("H");
-            } else {
-                obs.setInterpretationCode("N");
-            }
+        
+        // Determine interpretation code based on value vs reference range
+        if (primaryRange.getLowValue() != null && obs.getValueNumeric().compareTo(primaryRange.getLowValue()) < 0) {
+            obs.setInterpretationCode("L");  // Low
+        } else if (primaryRange.getHighValue() != null && obs.getValueNumeric().compareTo(primaryRange.getHighValue()) > 0) {
+            obs.setInterpretationCode("H");  // High
         } else {
-            log.warn("Could not find matching reference range for analyte {} (Gender: {}, Age: {})", 
-                    obs.getAnalyte().getAnalyteName(), patientGender, patientAge);
+            obs.setInterpretationCode("N");  // Normal (within range or no bounds)
         }
-    }
-
-    private int getPatientAgeYears(Patient patient) {
-        if (patient.getDateOfBirth() == null) return 30; // Default fallback
-        return Period.between(patient.getDateOfBirth(), LocalDate.now()).getYears();
     }
 
     private ObservationResponse mapToResponse(Observation obs) {

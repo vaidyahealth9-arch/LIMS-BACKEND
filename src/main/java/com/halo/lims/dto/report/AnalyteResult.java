@@ -13,10 +13,11 @@ public class AnalyteResult {
     private int markerPercent;
     private int pointCount;
     private String sparklineSvg;
+    private String interpretation;
 
     public AnalyteResult() {}
 
-    public AnalyteResult(String analyteName, String value, String unit, String referenceRange, String refLowDisplay, String refHighDisplay, String status, String statusClass, boolean abnormal, int markerPercent, int pointCount, String sparklineSvg) {
+    public AnalyteResult(String analyteName, String value, String unit, String referenceRange, String refLowDisplay, String refHighDisplay, String status, String statusClass, boolean abnormal, int markerPercent, int pointCount, String sparklineSvg, String interpretation) {
         this.analyteName = analyteName;
         this.value = value;
         this.unit = unit;
@@ -29,6 +30,7 @@ public class AnalyteResult {
         this.markerPercent = markerPercent;
         this.pointCount = pointCount;
         this.sparklineSvg = sparklineSvg;
+        this.interpretation = interpretation;
     }
 
     public static AnalyteResultBuilder builder() {
@@ -72,6 +74,9 @@ public class AnalyteResult {
     public String getSparklineSvg() { return sparklineSvg; }
     public void setSparklineSvg(String sparklineSvg) { this.sparklineSvg = sparklineSvg; }
 
+    public String getInterpretation() { return interpretation; }
+    public void setInterpretation(String interpretation) { this.interpretation = interpretation; }
+
     public static class AnalyteResultBuilder {
         private String analyteName;
         private String value;
@@ -85,6 +90,7 @@ public class AnalyteResult {
         private int markerPercent;
         private int pointCount;
         private String sparklineSvg;
+        private String interpretation;
 
         public AnalyteResultBuilder analyteName(String analyteName) { this.analyteName = analyteName; return this; }
         public AnalyteResultBuilder value(String value) { this.value = value; return this; }
@@ -98,9 +104,10 @@ public class AnalyteResult {
         public AnalyteResultBuilder markerPercent(int markerPercent) { this.markerPercent = markerPercent; return this; }
         public AnalyteResultBuilder pointCount(int pointCount) { this.pointCount = pointCount; return this; }
         public AnalyteResultBuilder sparklineSvg(String sparklineSvg) { this.sparklineSvg = sparklineSvg; return this; }
+        public AnalyteResultBuilder interpretation(String interpretation) { this.interpretation = interpretation; return this; }
 
         public AnalyteResult build() {
-            return new AnalyteResult(analyteName, value, unit, referenceRange, refLowDisplay, refHighDisplay, status, statusClass, abnormal, markerPercent, pointCount, sparklineSvg);
+            return new AnalyteResult(analyteName, value, unit, referenceRange, refLowDisplay, refHighDisplay, status, statusClass, abnormal, markerPercent, pointCount, sparklineSvg, interpretation);
         }
     }
 }

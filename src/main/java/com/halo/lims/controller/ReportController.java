@@ -5,6 +5,8 @@ import com.halo.lims.dto.report.ReportApprovalStatusResponse;
 import com.halo.lims.dto.report.ReportPdfDeletionResponse;
 import com.halo.lims.service.HashidService;
 import com.halo.lims.service.ReportService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -27,6 +29,8 @@ import java.nio.charset.StandardCharsets;
 @RequestMapping("/api/reports")
 public class ReportController {
 
+    private static final Logger log = LoggerFactory.getLogger(ReportController.class);
+    
     private final ReportService reportService;
     private final HashidService hashidService;
     private final boolean reportDeleteEnabled;
@@ -40,14 +44,14 @@ public class ReportController {
     }
 
     @GetMapping("/approval-status/{serviceRequestId:[0-9]+}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#serviceRequestId)")
     public ResponseEntity<ReportApprovalStatusResponse> getReportApprovalStatus(@PathVariable Integer serviceRequestId) {
         ReportApprovalStatusResponse status = reportService.getReportApprovalStatus(serviceRequestId);
         return ResponseEntity.ok(status);
     }
 
     @GetMapping("/download/{serviceRequestId:[0-9]+}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#serviceRequestId)")
     public ResponseEntity<byte[]> downloadUnifiedReport(
             @PathVariable Integer serviceRequestId,
             @RequestParam(defaultValue = "true") boolean withHeader,
@@ -77,7 +81,7 @@ public class ReportController {
     }
 
     @GetMapping("/pdf/{serviceRequestId:[0-9]+}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN') and @securityService.canAccessServiceRequest(#serviceRequestId)")
     public ResponseEntity<byte[]> downloadUnifiedReportPdf(
             @PathVariable Integer serviceRequestId,
             @RequestParam(defaultValue = "true") boolean withHeader,
@@ -87,7 +91,7 @@ public class ReportController {
     }
 
     @GetMapping("/public/{hashid}/pdf")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER', 'PATIENT')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'PATIENT')")
     public ResponseEntity<byte[]> downloadUnifiedReportPdfByHash(
             @PathVariable String hashid,
             @RequestParam(defaultValue = "true") boolean withHeader,
@@ -101,39 +105,44 @@ public class ReportController {
     }
 
     private ResponseEntity<byte[]> generatePdfResponse(Integer serviceRequestId, boolean withHeader, String reportType) {
-        ReportApprovalStatusResponse status = reportService.getReportApprovalStatus(serviceRequestId);
-        if (!status.isReady()) {
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, status.getMessage());
+        try {
+            ReportApprovalStatusResponse status = reportService.getReportApprovalStatus(serviceRequestId);
+            if (!status.isReady()) {
+                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, status.getMessage());
+            }
+
+            byte[] pdf;
+            if (withHeader) {
+                pdf = reportService.getStoredOrGeneratedPdfReport(serviceRequestId, true, reportType);
+            } else {
+                DiagnosticReportDTO report = reportService.buildReportDTO(
+                    serviceRequestId,
+                    false,
+                    reportType,
+                    status
+                );
+                pdf = reportService.renderReportPdf(report);
+            }
+            String filename = reportService.resolvePdfFileName(serviceRequestId, reportType);
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.setContentType(MediaType.APPLICATION_PDF);
+            headers.set(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"");
+            headers.setCacheControl(CacheControl.noStore().mustRevalidate().cachePrivate());
+            headers.setPragma("no-cache");
+            headers.setExpires(0);
+
+            return ResponseEntity.ok()
+                    .headers(headers)
+                    .body(pdf);
+        } catch (Exception e) {
+            log.error("Error generating PDF report for service request ID: {} with header: {}", serviceRequestId, withHeader, e);
+            throw e; // Re-throw for global exception handler
         }
-
-        byte[] pdf;
-        if (withHeader) {
-            pdf = reportService.getStoredOrGeneratedPdfReport(serviceRequestId, true, reportType);
-        } else {
-            DiagnosticReportDTO report = reportService.buildReportDTO(
-                serviceRequestId,
-                false,
-                reportType,
-                status
-            );
-            pdf = reportService.renderReportPdf(report);
-        }
-        String filename = reportService.resolvePdfFileName(serviceRequestId, reportType);
-
-        HttpHeaders headers = new HttpHeaders();
-        headers.setContentType(MediaType.APPLICATION_PDF);
-        headers.set(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"");
-        headers.setCacheControl(CacheControl.noStore().mustRevalidate().cachePrivate());
-        headers.setPragma("no-cache");
-        headers.setExpires(0);
-
-        return ResponseEntity.ok()
-                .headers(headers)
-                .body(pdf);
     }
 
     @GetMapping("/pdf/by-value/{localReportValue}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST', 'TECHNICIAN')")
     public ResponseEntity<byte[]> downloadUnifiedReportPdfByLocalReportValue(
             @PathVariable String localReportValue,
             @RequestParam(defaultValue = "true") boolean withHeader,

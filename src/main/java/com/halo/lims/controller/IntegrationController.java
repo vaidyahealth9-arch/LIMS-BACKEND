@@ -14,7 +14,6 @@ import com.halo.lims.repository.ServiceRequestRepository;
 import com.halo.lims.service.InternalRequestAuthService;
 import com.halo.lims.service.ReportService;
 import com.halo.lims.service.ReportStorageService;
-import com.halo.lims.service.ObservationService;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
@@ -54,7 +53,6 @@ public class IntegrationController {
     private final ServiceRequestRepository serviceRequestRepository;
     private final ServiceRequestItemRepository serviceRequestItemRepository;
     private final ObservationRepository observationRepository;
-    private final ObservationService observationService;
     private final InternalRequestAuthService internalRequestAuthService;
     private final String reportStorageProvider;
     private final String reportStorageLocalBasePath;
@@ -67,7 +65,6 @@ public class IntegrationController {
                                  ServiceRequestRepository serviceRequestRepository,
                                  ServiceRequestItemRepository serviceRequestItemRepository,
                                  ObservationRepository observationRepository,
-                                 ObservationService observationService,
                                  InternalRequestAuthService internalRequestAuthService,
                                  @Value("${app.report.storage.provider:local}") String reportStorageProvider,
                                  @Value("${app.report.storage.local.base-path:./data/lims-reports}") String reportStorageLocalBasePath) {
@@ -79,25 +76,9 @@ public class IntegrationController {
         this.serviceRequestRepository = serviceRequestRepository;
         this.serviceRequestItemRepository = serviceRequestItemRepository;
         this.observationRepository = observationRepository;
-        this.observationService = observationService;
         this.internalRequestAuthService = internalRequestAuthService;
         this.reportStorageProvider = reportStorageProvider;
         this.reportStorageLocalBasePath = reportStorageLocalBasePath;
-    }
-
-    @GetMapping("/repair-data")
-    public ResponseEntity<Map<String, Object>> repairData(HttpServletRequest request) {
-        // Internal auth check
-        String internalSecret = request.getHeader("X-Internal-Secret");
-        if (internalSecret == null || internalSecret.isBlank()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
-        }
-        
-        int count = observationService.repairAllObservations();
-        Map<String, Object> result = new LinkedHashMap<>();
-        result.put("status", "success");
-        result.put("message", "Re-applied reference ranges to " + count + " observations");
-        return ResponseEntity.ok(result);
     }
 
     @GetMapping("/storage-mode")

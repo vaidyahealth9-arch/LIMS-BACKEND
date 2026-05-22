@@ -3,6 +3,8 @@ package com.halo.lims.security;
 import com.google.cloud.secretmanager.v1.SecretManagerServiceClient;
 import com.google.cloud.secretmanager.v1.SecretVersionName;
 import jakarta.annotation.PostConstruct;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -17,149 +19,167 @@ import java.security.SecureRandom;
 import java.util.Base64;
 
 /**
- * Utility for AES-256 GCM encryption and decryption.
- * The encryption key is retrieved from Google Secret Manager.
+ * AES-256 GCM encryption/decryption utility for PII fields at rest.
+ *
+ * <p>In production (GCP Secret Manager enabled), the encryption key is fetched from
+ * Secret Manager on startup. A self-test is run to verify correctness.
+ *
+ * <p>In local development ({@code spring.cloud.gcp.secretmanager.enabled=false}),
+ * a random in-memory key is generated per-session — data encrypted locally is NOT
+ * persistent across restarts and should never be used for real patient data.
  */
 @Component
 public class AesGcmEncryptionUtil {
 
-    // AES-GCM parameters
-    private static final int GCM_IV_LENGTH = 12; // 96 bits
-    private static final int GCM_TAG_LENGTH = 16; // 128 bits
-    private static final int AES_KEY_SIZE = 256; // 256 bits
+    private static final Logger log = LoggerFactory.getLogger(AesGcmEncryptionUtil.class);
+
+    private static final int GCM_IV_LENGTH = 12;   // 96 bits
+    private static final int GCM_TAG_LENGTH = 16;  // 128 bits
+    private static final int AES_KEY_SIZE = 256;   // 256 bits
 
     private SecretKey secretKey;
+    private boolean encryptionActive = false;
 
-    @Value("${gcp.project.id}")
+    @Value("${spring.cloud.gcp.project-id:}")
     private String gcpProjectId;
 
-    @Value("${encryption.secret-manager.key-name}")
+    @Value("${encryption.secret-manager.key-name:lims-aes-256-key}")
     private String encryptionKeySecretName;
 
-    // Public constructor for testing, or if key management is handled externally
+    @Value("${spring.cloud.gcp.secretmanager.enabled:false}")
+    private boolean secretManagerEnabled;
+
     public AesGcmEncryptionUtil() {
-        // For Spring to inject values, then init() will be called.
-        // Or for testing with a mock key.
+        // Spring will inject @Value fields, then call @PostConstruct init().
     }
 
-    // Initialize the encryption key from Secret Manager after properties are injected
     @PostConstruct
     public void init() {
-        System.out.println("AES GCM Encryption utility (local development mode): Not connecting to Secret Manager.");
-        // --- START OF LOCAL DEVELOPMENT BYPASS ---
-        try {
-            // For local development, create a dummy key or just bypass encryption.
-            // Here, we'll create a dummy key to prevent NPEs in cipher operations
-            // but the encrypt/decrypt methods below will still just pass through.
-            KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-            keyGen.init(AES_KEY_SIZE, SecureRandom.getInstanceStrong());
-            this.secretKey = keyGen.generateKey(); // Dummy key
-            System.out.println("Dummy AES key generated for local encryption utility.");
-        } catch (Exception e) {
-            System.err.println("Failed to generate dummy AES key: " + e.getMessage());
-        }
-        /** todo below is GCP
-        try {
-            this.secretKey = getSecretKeyFromSecretManager(gcpProjectId, encryptionKeySecretName);
-            // Self-test for encryption utility on startup
-            String testString = "test-string-for-encryption-check";
-            String encrypted = encrypt(testString);
-            String decrypted = decrypt(encrypted);
-            if (!testString.equals(decrypted)) {
-                throw new IllegalStateException("AES GCM Encryption/Decryption self-test failed on startup!");
+        if (secretManagerEnabled && gcpProjectId != null && !gcpProjectId.isBlank()) {
+            try {
+                this.secretKey = getSecretKeyFromSecretManager(gcpProjectId, encryptionKeySecretName);
+                // Self-test encryption roundtrip on startup
+                String testString = "lims-aes-selftest";
+                String encrypted = encryptInternal(testString);
+                String decrypted = decryptInternal(encrypted);
+                if (!testString.equals(decrypted)) {
+                    throw new IllegalStateException("AES GCM self-test FAILED: encrypt/decrypt roundtrip mismatch.");
+                }
+                this.encryptionActive = true;
+                log.info("AES-GCM encryption initialized successfully via GCP Secret Manager (project={}, key={}).",
+                        gcpProjectId, encryptionKeySecretName);
+            } catch (Exception e) {
+                log.error("FATAL: Failed to initialize AES-GCM encryption from Secret Manager: {}", e.getMessage(), e);
+                throw new RuntimeException("Encryption utility initialization failed. Cannot start without a valid encryption key.", e);
             }
-            System.out.println("AES GCM Encryption utility initialized successfully and passed self-test.");
-        } catch (Exception e) {
-            System.err.println("Failed to initialize AES GCM Encryption utility: " + e.getMessage());
-            // Depending on criticality, you might want to throw RuntimeException here to halt application startup
-            throw new RuntimeException("Encryption utility initialization failed.", e);
-        }*/
+        } else {
+            // Local development — use a fixed static key.
+            // Data encrypted with this key is persistent locally but NOT secure.
+            try {
+                byte[] staticKey = "local-dev-secret-key-12345678901".getBytes(StandardCharsets.UTF_8);
+                this.secretKey = new SecretKeySpec(staticKey, "AES");
+                this.encryptionActive = true;
+                log.warn("AES-GCM encryption running in LOCAL mode with a fixed static key. " +
+                        "Data will survive restarts locally. DO NOT use this key in production.");
+            } catch (Exception e) {
+                log.error("Failed to set local AES key: {}", e.getMessage(), e);
+                throw new RuntimeException("Failed to initialize local encryption key.", e);
+            }
+        }
     }
 
-    /** todo below is GCP
     private SecretKey getSecretKeyFromSecretManager(String projectId, String secretName) throws Exception {
         try (SecretManagerServiceClient client = SecretManagerServiceClient.create()) {
             SecretVersionName secretVersionName = SecretVersionName.of(projectId, secretName, "latest");
-            String secretValue = client.accessSecretVersion(secretVersionName).getPayload().getData().toStringUtf8();
-            // The secretValue should be the Base64 encoded raw AES key (256-bit / 32 bytes)
+            String secretValue = client.accessSecretVersion(secretVersionName)
+                    .getPayload().getData().toStringUtf8();
             byte[] keyBytes = Base64.getDecoder().decode(secretValue);
             if (keyBytes.length * 8 != AES_KEY_SIZE) {
-                throw new IllegalArgumentException("Retrieved secret key size mismatch. Expected " + AES_KEY_SIZE + " bits, got " + (keyBytes.length * 8) + " bits.");
+                throw new IllegalArgumentException(
+                        "Secret key size mismatch. Expected " + AES_KEY_SIZE + " bits, got " + (keyBytes.length * 8) + " bits.");
             }
             return new SecretKeySpec(keyBytes, "AES");
         }
-    }*/
-
-    /**
-     * Generates a new 256-bit AES key. This should be run once to generate the key,
-     * which then should be securely stored in Google Secret Manager.
-     * @return Base64 encoded AES key string.
-     */
-    public static String generateNewAesKey() throws Exception {
-        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
-        keyGen.init(AES_KEY_SIZE, SecureRandom.getInstanceStrong());
-        SecretKey secretKey = keyGen.generateKey();
-        return Base64.getEncoder().encodeToString(secretKey.getEncoded());
     }
 
+    /**
+     * Encrypts a plaintext string using AES-256-GCM.
+     * Returns the Base64-encoded ciphertext (IV prepended).
+     * Returns {@code null} if input is {@code null}.
+     */
     public String encrypt(String plainText) {
         if (plainText == null || plainText.isEmpty()) {
             return plainText;
         }
-
-        return plainText;
-
-        /** todo below is GCP
         try {
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            new SecureRandom().nextBytes(iv); // Generate a new IV for each encryption
-
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv));
-
-            byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
-
-            ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + cipherText.length);
-            byteBuffer.put(iv);
-            byteBuffer.put(cipherText);
-            return Base64.getEncoder().encodeToString(byteBuffer.array());
+            return encryptInternal(plainText);
         } catch (Exception e) {
-            throw new RuntimeException("Error while encrypting data", e);
-        }*/
+            throw new RuntimeException("AES-GCM encryption failed.", e);
+        }
     }
 
+    /**
+     * Decrypts a Base64-encoded AES-256-GCM ciphertext string.
+     * Returns {@code null} if input is {@code null}.
+     */
     public String decrypt(String encryptedText) {
         if (encryptedText == null || encryptedText.isEmpty()) {
             return encryptedText;
         }
-        return encryptedText;
-        /** todo below is GCP
         try {
-            byte[] decodedBytes = Base64.getDecoder().decode(encryptedText);
-
-            ByteBuffer byteBuffer = ByteBuffer.wrap(decodedBytes);
-            byte[] iv = new byte[GCM_IV_LENGTH];
-            byteBuffer.get(iv);
-
-            byte[] cipherText = new byte[byteBuffer.remaining()];
-            byteBuffer.get(cipherText);
-
-            Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
-            cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv));
-
-            byte[] plainTextBytes = cipher.doFinal(cipherText);
-            return new String(plainTextBytes, StandardCharsets.UTF_8);
+            return decryptInternal(encryptedText);
         } catch (Exception e) {
-            // Log the error but return null or re-throw a specific decryption exception
-            // depending on how you want to handle decryption failures for non-critical data.
-            // For PII, a failure is critical.
-            throw new RuntimeException("Error while decrypting data", e);
-        }*/
+            log.warn("AES-GCM decryption failed for a value (returning null as fallback). " +
+                     "This usually happens if the data was unencrypted or encrypted with a previous session key. Error: {}", e.getMessage());
+            // Prevent returning the raw encrypted Base64 string to the frontend to avoid garbage data and potential PII leak
+            return null;
+        }
     }
 
-    /*public static void main(String[] args) throws Exception {
-        String newKey = AesGcmEncryptionUtil.generateNewAesKey();
-        System.out.println("Generated AES-256 Key (Base64 encoded): " + newKey);
-        // STORE THIS KEY SECURELY IN GOOGLE SECRET MANAGER! k/HA5Xz3vxbCF9mr3Th7dRQYBm+TChOpNeBIO7Lm/kc=
-    }*/
+    private String encryptInternal(String plainText) throws Exception {
+        byte[] iv = new byte[GCM_IV_LENGTH];
+        new SecureRandom().nextBytes(iv);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.ENCRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv));
+
+        byte[] cipherText = cipher.doFinal(plainText.getBytes(StandardCharsets.UTF_8));
+
+        ByteBuffer byteBuffer = ByteBuffer.allocate(iv.length + cipherText.length);
+        byteBuffer.put(iv);
+        byteBuffer.put(cipherText);
+        return Base64.getEncoder().encodeToString(byteBuffer.array());
+    }
+
+    private String decryptInternal(String encryptedText) throws Exception {
+        byte[] decodedBytes = Base64.getDecoder().decode(encryptedText);
+
+        ByteBuffer byteBuffer = ByteBuffer.wrap(decodedBytes);
+        byte[] iv = new byte[GCM_IV_LENGTH];
+        byteBuffer.get(iv);
+
+        byte[] cipherText = new byte[byteBuffer.remaining()];
+        byteBuffer.get(cipherText);
+
+        Cipher cipher = Cipher.getInstance("AES/GCM/NoPadding");
+        cipher.init(Cipher.DECRYPT_MODE, secretKey, new GCMParameterSpec(GCM_TAG_LENGTH * 8, iv));
+
+        byte[] plainTextBytes = cipher.doFinal(cipherText);
+        return new String(plainTextBytes, StandardCharsets.UTF_8);
+    }
+
+    /**
+     * Utility: generates a new random AES-256 key and prints it to stdout.
+     * Run once to create a key, then store it in GCP Secret Manager.
+     * <pre>
+     *   java -cp target/lims-*.jar com.halo.lims.security.AesGcmEncryptionUtil
+     * </pre>
+     */
+    public static void main(String[] args) throws Exception {
+        KeyGenerator keyGen = KeyGenerator.getInstance("AES");
+        keyGen.init(AES_KEY_SIZE, SecureRandom.getInstanceStrong());
+        String newKey = Base64.getEncoder().encodeToString(keyGen.generateKey().getEncoded());
+        System.out.println("Generated AES-256 Key (Base64). Store securely in GCP Secret Manager:");
+        System.out.println(newKey);
+    }
 }

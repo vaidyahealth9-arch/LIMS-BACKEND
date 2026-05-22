@@ -1,57 +1,32 @@
 package com.halo.lims;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
-
-import org.springframework.boot.CommandLineRunner;
-import org.springframework.context.annotation.Bean;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
+import org.springframework.retry.annotation.EnableRetry;
 
 @SpringBootApplication
+@EnableRetry
 public class LimsApplication {
+
+	private static final Logger log = LoggerFactory.getLogger(LimsApplication.class);
 
 	public static void main(String[] args) {
 		SpringApplication.run(LimsApplication.class, args);
 	}
 
-	@Bean
-	public CommandLineRunner commandLineRunner(
-			com.halo.lims.repository.UserRepository userRepository,
-			com.halo.lims.repository.OrganizationRepository organizationRepository,
-			org.springframework.security.crypto.password.PasswordEncoder passwordEncoder) {
-		return args -> {
-			System.out.println("=======================================");
-			System.out.println("  LIMS APPLICATION FULLY STARTED!      ");
-			System.out.println("  Listening on Port: " + System.getenv("PORT"));
-			System.out.println("=======================================");
-
-			// Seed default organization if none exist
-			if (organizationRepository.count() == 0) {
-				System.out.println("Seeding default organization...");
-				com.halo.lims.model.Organization org = com.halo.lims.model.Organization.builder()
-						.organizationName("Hale Labs")
-						.orgType("laboratory")
-						.localIdentifierSystem("https://vaidyahealth.com")
-						.localIdentifierValue("HALE-001")
-						.country("IND")
-						.build();
-				organizationRepository.save(org);
-			}
-
-			// Seed default admin user if none exist
-			if (userRepository.count() == 0) {
-				System.out.println("Seeding default admin user...");
-				com.halo.lims.model.Organization org = organizationRepository.findAll().get(0);
-				com.halo.lims.model.User admin = com.halo.lims.model.User.builder()
-						.username("admin")
-						.password(passwordEncoder.encode("admin"))
-						.roles(java.util.Set.of("ADMIN"))
-						.organization(org)
-						.isActive(true)
-						.build();
-				userRepository.save(admin);
-				System.out.println("Default admin created: admin / admin");
-			}
-		};
+	/**
+	 * Logs a startup confirmation via the proper SLF4J logger once the application
+	 * context is fully initialized and all beans are ready.
+	 */
+	@EventListener(ApplicationReadyEvent.class)
+	public void onApplicationReady() {
+		log.info("=======================================");
+		log.info("  LIMS APPLICATION FULLY STARTED!      ");
+		log.info("  Environment: {}", System.getenv("ENVIRONMENT") != null ? System.getenv("ENVIRONMENT") : "development");
+		log.info("=======================================");
 	}
-
 }

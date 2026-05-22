@@ -161,6 +161,11 @@
 			<artifactId>openhtmltopdf-pdfbox</artifactId>
 			<version>1.0.10</version>
 		</dependency>
+		<dependency>
+			<groupId>com.openhtmltopdf</groupId>
+			<artifactId>openhtmltopdf-svg-support</artifactId>
+			<version>1.0.10</version>
+		</dependency>
         <!-- https://mvnrepository.com/artifact/com.google.cloud/google-cloud-secretmanager -->
         <dependency>
             <groupId>com.google.cloud</groupId>
@@ -220,6 +225,24 @@
             <artifactId>hashids</artifactId>
             <version>1.0.3</version>
         </dependency>
+        <!-- Razorpay Payment Gateway -->
+        <dependency>
+            <groupId>com.razorpay</groupId>
+            <artifactId>razorpay-java</artifactId>
+            <version>1.4.6</version>
+        </dependency>
+        <!-- JSON handling for Razorpay -->
+        <dependency>
+            <groupId>org.json</groupId>
+            <artifactId>json</artifactId>
+			<version>20240303</version>
+				</dependency>
+				<!-- Resilience4j for Circuit Breaker -->
+				<dependency>
+					<groupId>io.github.resilience4j</groupId>
+					<artifactId>resilience4j-circuitbreaker</artifactId>
+					<version>2.1.0</version>
+        </dependency>
     </dependencies>
 
 	<build>
@@ -227,8 +250,10 @@
 			<plugin>
 				<groupId>org.apache.maven.plugins</groupId>
 				<artifactId>maven-compiler-plugin</artifactId>
-				<version>3.13.0</version>
+				<version>3.11.0</version>
 				<configuration>
+					<source>21</source>
+					<target>21</target>
 					<annotationProcessorPaths>
 						<path>
 							<groupId>org.projectlombok</groupId>

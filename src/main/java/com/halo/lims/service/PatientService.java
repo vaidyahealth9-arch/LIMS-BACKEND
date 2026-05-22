@@ -15,7 +15,6 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.time.OffsetDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
@@ -30,17 +29,14 @@ public class PatientService {
     private static final Logger log = LoggerFactory.getLogger(PatientService.class);
 
     private final PatientRepository patientRepository;
-    private final OrganizationRepository organizationRepository; // Inject OrganizationRepository
-    private final AbdmService abdmService;
+    private final OrganizationRepository organizationRepository;
     private final PhrInternalClient phrInternalClient;
 
     public PatientService(PatientRepository patientRepository,
-                          OrganizationRepository organizationRepository, // Inject
-                          AbdmService abdmService,
+                          OrganizationRepository organizationRepository,
                           PhrInternalClient phrInternalClient) {
         this.patientRepository = patientRepository;
-        this.organizationRepository = organizationRepository; // Assign
-        this.abdmService = abdmService;
+        this.organizationRepository = organizationRepository;
         this.phrInternalClient = phrInternalClient;
     }
 
@@ -104,24 +100,13 @@ public class PatientService {
         patient.setRelationship(request.getRelationship() != null ? request.getRelationship() : "self");
         patient.setIsDependent(request.getIsDependent() != null ? request.getIsDependent() : false);
 
-        // Handle ABHA creation/linking requests (if new or if not already linked)
-        if (StringUtils.isNotBlank(request.getAadhaarNumber())|| StringUtils.isNotBlank(request.getAbhaLinkMobileNumber()) || StringUtils.isNotBlank(request.getAbhaIdToLink())) {
-            // ... (existing ABHA logic remains same)
-            String authMethod;
-            if (request.getAadhaarNumber() != null) {
-                authMethod = "AADHAAR_OTP";
-                // throw new UnsupportedOperationException("Aadhaar based ABHA creation/linking not yet implemented.");
-            } else if (request.getAbhaLinkMobileNumber() != null) {
-                authMethod = "MOBILE_OTP";
-                String txnId = abdmService.initiateAbhaVerification(request, authMethod);
-                patient.setAbdmLinkStatus("PENDING_OTP");
-                patient.setAbdmStatusMessage("OTP sent to mobile for ABHA linking. Txn ID: " + txnId);
-            } else if (request.getAbhaIdToLink() != null) {
-                authMethod = "HEALTH_ID";
-                String txnId = abdmService.initiateAbhaVerification(request, authMethod);
-                patient.setAbdmLinkStatus("PENDING_OTP");
-                patient.setAbdmStatusMessage("OTP sent to ABHA registered mobile for linking. Txn ID: " + txnId);
-            }
+        // ABDM/ABHA integration is a future feature — not yet implemented.
+        // If ABHA fields are submitted, log a warning and ignore them gracefully.
+        if (StringUtils.isNotBlank(request.getAadhaarNumber())
+                || StringUtils.isNotBlank(request.getAbhaLinkMobileNumber())
+                || StringUtils.isNotBlank(request.getAbhaIdToLink())) {
+            log.warn("ABHA linking fields submitted for patient {} {} but ABDM integration is not yet active. Fields ignored.",
+                    request.getFirstName(), request.getLastName());
         }
 
         Patient savedPatient = patientRepository.save(patient);
@@ -130,42 +115,17 @@ public class PatientService {
 
     @Transactional
     public PatientRegistrationResponse verifyAbhaAndLink(AbhaOtpVerificationRequest verificationRequest, Integer patientId) {
-        Patient patient = patientRepository.findById(patientId)
-                .orElseThrow(() -> new RuntimeException("Patient not found with ID: " + patientId));
-
-        // Security check: ensure the user making this call is authorized for this patient's organization
-        // (This would be handled by Spring Security context and authorization logic)
-
-        if (!"PENDING_OTP".equals(patient.getAbdmLinkStatus())) {
-            throw new IllegalStateException("ABHA linking is not in PENDING_OTP status for patient: " + patientId);
-        }
-
-        PatientRegistrationRequest originalPatientData = new PatientRegistrationRequest();
-        originalPatientData.setFirstName(patient.getFirstName());
-        originalPatientData.setLastName(patient.getLastName());
-        originalPatientData.setGender(patient.getGender());
-        originalPatientData.setDateOfBirth(patient.getDateOfBirth());
-
-
-        AbdmService.AbhaDetails abhaDetails = abdmService.confirmAbhaVerification(verificationRequest, originalPatientData);
-
-        patient.setAbhaId(abhaDetails.getAbhaId());
-        patient.setAbhaAddress(abhaDetails.getAbhaAddress());
-        patient.setAbhaIdSystem("https://healthid.ndhm.gov.in");
-        patient.setAbdmLinkStatus("LINKED");
-        patient.setAbdmStatusMessage(null);
-        patient.setAbdmLastLinkedAt(OffsetDateTime.now());
-
-        Patient updatedPatient = patientRepository.save(patient);
-        return mapToPatientRegistrationResponse(updatedPatient);
+        // ABDM integration is a future feature. This endpoint is reserved but not yet active.
+        throw new UnsupportedOperationException(
+                "ABHA OTP verification is not yet implemented. ABDM integration is pending."
+        );
     }
 
 
     private String generateLocalMrn(String organizationLocalId) {
-        String datePart = OffsetDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
-        // Need a robust, organization-specific sequence for MRNs in a real system.
-        // For example: query `patientRepository.countByOrganization(organization)` and increment.
-        String suffix = String.format("%04d", (patientRepository.count() + 1)); // Simple global counter for now
+        String datePart = java.time.OffsetDateTime.now().format(java.time.format.DateTimeFormatter.ofPattern("yyMMdd"));
+        // TODO: Replace with an org-scoped sequence counter for truly unique MRNs per org.
+        String suffix = String.format("%04d", (patientRepository.count() + 1));
         return organizationLocalId + "-" + datePart + "-" + suffix;
     }
 

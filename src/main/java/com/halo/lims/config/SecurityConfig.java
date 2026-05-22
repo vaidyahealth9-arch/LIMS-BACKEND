@@ -52,6 +52,10 @@ public class SecurityConfig {
     @Value("${app.cors.allowed-origin-patterns:https://hale-lims-web-322945089195.asia-south1.run.app}")
     private List<String> allowedOriginPatterns;
 
+    /** Swagger is enabled only in non-production profiles (springdoc.api-docs.enabled=false in prod). */
+    @Value("${springdoc.api-docs.enabled:true}")
+    private boolean swaggerEnabled;
+
     public SecurityConfig(CustomUserDetailsService customUserDetailsService) {
         this.customUserDetailsService = customUserDetailsService;
     }
@@ -87,18 +91,22 @@ public class SecurityConfig {
                 .cors(withDefaults())
                 .csrf(AbstractHttpConfigurer::disable) // Disable CSRF for API development
                 .authorizeHttpRequests(authorize -> authorize
-                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll() // Permit all OPTIONS requests
+                        .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                         .requestMatchers("/api/auth/**").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/subscriptions/plans", "/api/subscriptions/plans/**").permitAll()
                         .requestMatchers("/api/health").permitAll()
-                        .requestMatchers("/api/internal/seed").permitAll()
-                        .requestMatchers("/api/integration/**").permitAll() // Internal service-to-service (PHR ↔ LIMS)
-                    .requestMatchers("/error").permitAll()
-                        // Allow access to Swagger UI
-                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**").permitAll()
-                        .requestMatchers("/v3/api-docs", "/v3/api-docs/**").permitAll()
-                        // Public endpoints (e.g., ABHA init, if applicable without auth)
-                        // .requestMatchers("/api/public/**").permitAll()
-                        .anyRequest().authenticated() // All other requests require authentication
+                        .requestMatchers("/api/patients/test-phr").permitAll()
+                        .requestMatchers("/api/integration/**").permitAll()
+                        .requestMatchers("/error").permitAll()
+                        // Swagger UI: permit only when explicitly enabled (disabled in prod via properties)
+                        .requestMatchers("/swagger-ui.html", "/swagger-ui/**", "/v3/api-docs", "/v3/api-docs/**")
+                            .access((authentication, context) -> {
+                                if (swaggerEnabled) {
+                                    return new org.springframework.security.authorization.AuthorizationDecision(true);
+                                }
+                                return new org.springframework.security.authorization.AuthorizationDecision(false);
+                            })
+                        .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS)) // For stateless API (JWT)
                 .authenticationProvider(authenticationProvider()) // Register your custom authentication provider
@@ -124,8 +132,10 @@ public class SecurityConfig {
                 ? List.of("https://hale-lims-web-322945089195.asia-south1.run.app", "http://localhost:5173")
                 : sanitizedOrigins
         );
-        configuration.setAllowedMethods(List.of("*"));
-        configuration.setAllowedHeaders(List.of("*"));
+        // Restrict to explicit HTTP methods; no wildcard
+        configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
+        // Restrict to explicit headers; no wildcard
+        configuration.setAllowedHeaders(Arrays.asList("Content-Type", "Authorization", "X-Requested-With", "X-Correlation-ID"));
         configuration.setAllowCredentials(true);
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);

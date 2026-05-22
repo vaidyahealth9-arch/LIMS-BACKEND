@@ -472,6 +472,7 @@ public class BillingService {
                     bill.getInvoiceDate(),
                     patient.getFirstName() + " " + patient.getLastName(),
                     patient.getLocalMrnValue(),
+                    encounter.getId(),
                     encounter.getLocalEncounterValue(),
                     bill.getTotalAmount(),
                     bill.getDiscountAmount(),
@@ -481,7 +482,8 @@ public class BillingService {
                     bill.getStatus(),
                     relatedSrIds,
                     testNames,
-                    testItems
+                    testItems,
+                    encounter.getStatus()
             );
         }).collect(Collectors.toList());
 

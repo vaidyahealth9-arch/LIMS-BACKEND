@@ -25,7 +25,7 @@ public interface PatientRepository extends JpaRepository<Patient, Integer> {
     @Query("SELECT p FROM Patient p WHERE p.organization = :organization AND (" +
            "LOWER(p.firstName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
            "LOWER(p.lastName) LIKE LOWER(CONCAT('%', :query, '%')) OR " +
-           "p.contactPhone LIKE CONCAT('%', :query, '%') OR " +
+           "p.contactPhoneNormalized LIKE CONCAT('%', :query, '%') OR " +
            "p.localMrnValue LIKE CONCAT('%', :query, '%') OR " +
            "p.abhaId LIKE CONCAT('%', :query, '%'))")
     Page<Patient> searchPatients(@Param("organization") Organization organization, @Param("query") String query, Pageable pageable);

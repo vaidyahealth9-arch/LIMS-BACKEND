@@ -19,11 +19,8 @@ public interface EncounterRepository extends JpaRepository<Encounter, Integer>, 
     List<Encounter> findByPatient_Id(Integer patientId);
     List<Encounter> findByServiceProvider_Id(Integer serviceProviderId);
 
-    // Find encounters for patients belonging to an organization (paged)
-    Page<Encounter> findByPatient_Organization_Id(Integer organizationId, Pageable pageable);
+    Page<Encounter> findAll(Specification<Encounter> spec, Pageable pageable);
 
-    // NOTE: searchEncounters is now implemented via JPA Specifications in EncounterService
-    // to avoid a Cloud SQL PostgreSQL bytea type-inference bug with nullable LIKE parameters.
-    // The findAll(Specification, Pageable) method is inherited from JpaSpecificationExecutor.
+        // Find encounters for patients belonging to an organization (paged)
+        Page<Encounter> findByPatient_Organization_Id(Integer organizationId, Pageable pageable);
 }
-

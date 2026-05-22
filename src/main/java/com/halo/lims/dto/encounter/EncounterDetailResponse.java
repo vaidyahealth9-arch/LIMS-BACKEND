@@ -24,6 +24,7 @@ public class EncounterDetailResponse {
     private String localEncounterValue;
     private List<String> tests;
     private List<Integer> serviceRequestIds;
+    private List<String> specimenBarcodes;
 
     // Getters and Setters
     public Integer getId() { return id; }
@@ -67,4 +68,7 @@ public class EncounterDetailResponse {
 
     public List<Integer> getServiceRequestIds() { return serviceRequestIds; }
     public void setServiceRequestIds(List<Integer> serviceRequestIds) { this.serviceRequestIds = serviceRequestIds; }
+
+    public List<String> getSpecimenBarcodes() { return specimenBarcodes; }
+    public void setSpecimenBarcodes(List<String> specimenBarcodes) { this.specimenBarcodes = specimenBarcodes; }
 }

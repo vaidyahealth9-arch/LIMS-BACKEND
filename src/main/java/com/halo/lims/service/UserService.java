@@ -29,12 +29,10 @@ public class UserService {
 
     private static final Set<String> ALLOWED_ROLES = Set.of(
             "ADMIN",
-            "MANAGER",
             "RECEPTIONIST",
             "TECHNICIAN",
             "DOCTOR",
-            "PATHOLOGIST",
-            "RADIOLOGIST"
+                "PATHOLOGIST"
     );
 
         private static final int PRACTITIONER_IDENTIFIER_MAX_ATTEMPTS = 10;

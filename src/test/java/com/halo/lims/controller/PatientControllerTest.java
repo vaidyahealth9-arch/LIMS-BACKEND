@@ -66,7 +66,7 @@ class PatientControllerTest {
         response.setState("Telangana");
         response.setPostalCode("500001");
 
-        given(patientService.findPatientByMobile("9876543210")).willReturn(Optional.of(response));
+        given(patientService.findPatientByMobile("9876543210", null)).willReturn(Optional.of(response));
 
         mockMvc.perform(get("/api/patients/phr-lookup").param("mobile", "9876543210"))
                 .andExpect(status().isOk())

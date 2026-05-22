@@ -36,7 +36,7 @@ public class User implements UserDetails {
     @ElementCollection(fetch = FetchType.EAGER) // Roles stored as collection of strings
     @CollectionTable(name = "lims_user_roles", joinColumns = @JoinColumn(name = "user_id"))
     @Column(name = "role")
-    private Set<String> roles; // e.g., "TECHNICIAN", "PATHOLOGIST", "ADMIN", "MANAGER"
+    private Set<String> roles; // e.g., "TECHNICIAN", "PATHOLOGIST", "ADMIN"
 
     @OneToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "practitioner_id", unique = true)

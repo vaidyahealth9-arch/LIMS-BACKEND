@@ -1,0 +1,45 @@
+# Sample Razorpay Configuration for application.properties
+
+# ==========================================
+# RAZORPAY CONFIGURATION
+# ==========================================
+
+# Test Mode Keys (Replace with your actual keys)
+razorpay.key.id=rzp_test_1234567890abcd
+razorpay.key.secret=test_secret_1234567890abcdefghijk
+
+# For Production, use Live Keys
+# razorpay.key.id=rzp_live_1234567890abcd
+# razorpay.key.secret=live_secret_1234567890abcdefghijk
+
+# Webhook Configuration (for production)
+# razorpay.webhook.secret=your_webhook_secret_from_dashboard
+
+# ==========================================
+# IMPORTANT SECURITY NOTES
+# ==========================================
+# 1. NEVER commit real API keys to version control
+# 2. Use environment variables in production:
+#    export RAZORPAY_KEY_ID=your_key
+#    export RAZORPAY_KEY_SECRET=your_secret
+# 3. Use secrets management service (GCP, AWS, HashiCorp Vault)
+# 4. Rotate keys periodically
+# 5. Monitor API key usage in Razorpay dashboard
+
+# ==========================================
+# EXAMPLE: Using Environment Variables
+# ==========================================
+# In application-prod.properties:
+# razorpay.key.id=${RAZORPAY_KEY_ID}
+# razorpay.key.secret=${RAZORPAY_KEY_SECRET}
+#
+# Then set environment variables:
+# export RAZORPAY_KEY_ID=rzp_live_xxxxx
+# export RAZORPAY_KEY_SECRET=live_secret_xxxxx
+
+# ==========================================
+# EXAMPLE: Using Spring Cloud GCP Secrets
+# ==========================================
+# spring.cloud.gcp.secretmanager.enabled=true
+# razorpay.key.id=${gcp:razorpay-key-id}
+# razorpay.key.secret=${gcp:razorpay-key-secret}

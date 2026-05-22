@@ -12,6 +12,7 @@ import com.halo.lims.security.SecurityService;
 import com.halo.lims.model.Encounter;
 import com.halo.lims.model.Organization;
 import com.halo.lims.model.Patient;
+import com.halo.lims.model.Bill;
 import com.halo.lims.model.ServiceRequest;
 import com.halo.lims.model.ServiceRequestItem;
 import com.halo.lims.repository.BillRepository;
@@ -27,13 +28,11 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import jakarta.persistence.criteria.Join;
-import jakarta.persistence.criteria.JoinType;
-import jakarta.persistence.criteria.Predicate;
+import org.springframework.security.access.AccessDeniedException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.time.LocalDate;
-import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.time.OffsetDateTime;
 import java.time.ZoneOffset;
@@ -46,6 +45,8 @@ import java.util.stream.Collectors;
 @Service
 public class EncounterService {
 
+    private static final Logger log = LoggerFactory.getLogger(EncounterService.class);
+    
     private final EncounterRepository encounterRepository;
     private final PatientRepository patientRepository;
     private final OrganizationRepository organizationRepository;
@@ -95,12 +96,12 @@ public class EncounterService {
         }
 
         // --- Multi-tenancy check ---
-        Integer patientOrgId = patient.getOrganization().getId();
+        Integer patientOrgId = resolveOrganizationId(patient.getOrganization(), "patient", patient.getId());
         if (!securityService.isUserInOrganization(patientOrgId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to create encounters for patients in organization ID: " + patientOrgId);
+            throw new AccessDeniedException("User not authorized to create encounters for patients in organization ID: " + patientOrgId);
         }
         if (!securityService.isUserInOrganization(serviceProvider.getId())) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to create encounters with service provider organization ID: " + serviceProvider.getId());
+            throw new AccessDeniedException("User not authorized to create encounters with service provider organization ID: " + serviceProvider.getId());
         }
         // --- End multi-tenancy check ---
 
@@ -125,9 +126,9 @@ public class EncounterService {
                 .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
 
         // --- Multi-tenancy check ---
-        Integer patientOrgId = encounter.getPatient().getOrganization().getId();
+        Integer patientOrgId = resolveEncounterOrganizationId(encounter);
         if (!securityService.isUserInOrganization(patientOrgId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to update encounters for patients in organization ID: " + patientOrgId);
+            throw new AccessDeniedException("User not authorized to update encounters for patients in organization ID: " + patientOrgId);
         }
         // --- End multi-tenancy check ---
 
@@ -151,13 +152,25 @@ public class EncounterService {
                 .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
 
         // --- Multi-tenancy check ---
-        Integer patientOrgId = encounter.getPatient().getOrganization().getId();
+        Integer patientOrgId = resolveEncounterOrganizationId(encounter);
         if (!securityService.isUserInOrganization(patientOrgId)) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to update encounters for patients in organization ID: " + patientOrgId);
+            throw new AccessDeniedException("User not authorized to update encounters for patients in organization ID: " + patientOrgId);
         }
 
         String normalizedStatus = normalizeEncounterStatusCode(newStatus);
         validateEncounterStatusChange(encounter, normalizedStatus);
+
+        if (EncounterStatus.APPROVED.getCode().equalsIgnoreCase(normalizedStatus)) {
+            throw new IllegalStateException("Doctor approval must be completed from the observation approval workflow. Encounter approval is assigned automatically after results are finalized.");
+        }
+
+        if (EncounterStatus.COMPLETED.getCode().equalsIgnoreCase(normalizedStatus)) {
+            List<Bill> bills = billRepository.findByEncounter(encounter);
+            boolean hasOutstandingBalance = bills.stream().anyMatch(bill -> bill.getDueAmount() != null && bill.getDueAmount().compareTo(java.math.BigDecimal.ZERO) > 0);
+            if (hasOutstandingBalance) {
+                throw new IllegalStateException("Cannot complete encounter. Full payment is still pending.");
+            }
+        }
 
         encounter.setStatus(normalizedStatus);
         if (approver != null && EncounterStatus.APPROVED.getCode().equalsIgnoreCase(normalizedStatus)) {
@@ -167,6 +180,13 @@ public class EncounterService {
         // Propagate COMPLETED status to all associated ServiceRequests
         if (EncounterStatus.COMPLETED.getCode().equalsIgnoreCase(normalizedStatus)) {
             List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounter(encounter);
+            for (ServiceRequest sr : serviceRequests) {
+                if (sr == null || sr.getId() == null) {
+                    continue;
+                }
+                reportApprovalService.getReportApprovalStatus(sr.getId());
+                reportService.buildUnifiedPdfReport(sr.getId(), true, "regular");
+            }
             for (ServiceRequest sr : serviceRequests) {
                 if (sr.getStatus() != null && !"cancelled".equalsIgnoreCase(sr.getStatus())) {
                     sr.setStatus(ServiceRequestStatus.COMPLETED.getCode());
@@ -182,10 +202,10 @@ public class EncounterService {
     private void validateEncounterStatusChange(Encounter encounter, String newStatus) {
         String currentStatus = encounter.getStatus();
         if (EncounterStatus.COMPLETED.getCode().equalsIgnoreCase(currentStatus)) {
-            throw new RuntimeException("Cannot change status of a COMPLETED encounter");
+            throw new IllegalStateException("Cannot change status of a COMPLETED encounter");
         }
         if (EncounterStatus.CANCELLED.getCode().equalsIgnoreCase(currentStatus)) {
-            throw new RuntimeException("Cannot change status of a CANCELLED encounter");
+            throw new IllegalStateException("Cannot change status of a CANCELLED encounter");
         }
     }
 
@@ -195,8 +215,9 @@ public class EncounterService {
                 .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
         
         // Multi-tenancy check
-        if (!securityService.isUserInOrganization(encounter.getPatient().getOrganization().getId())) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to access encounter ID: " + id);
+        Integer organizationId = resolveEncounterOrganizationId(encounter);
+        if (!securityService.isUserInOrganization(organizationId)) {
+            throw new AccessDeniedException("User not authorized to access encounter ID: " + id);
         }
 
         return mapToEncounterResponse(encounter);
@@ -204,41 +225,102 @@ public class EncounterService {
 
     @Transactional(readOnly = true)
     public EncounterDetailResponse getEncounterDetail(Integer id) {
+        log.info("Attempting to get encounter details for ID: {}", id);
+        
         Encounter encounter = encounterRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Encounter not found with ID: " + id));
+        
+        log.debug("Encounter fetched: ID={}, PatientId={}, ServiceProviderId={}", 
+                  id, encounter.getPatient() != null ? encounter.getPatient().getId() : null,
+                  encounter.getServiceProvider() != null ? encounter.getServiceProvider().getId() : null);
 
         // Multi-tenancy check
-        if (!securityService.isUserInOrganization(encounter.getPatient().getOrganization().getId())) {
-            throw new org.springframework.security.access.AccessDeniedException("User not authorized to access encounter ID: " + id);
+        Integer organizationId = resolveEncounterOrganizationId(encounter);
+        if (!securityService.isUserInOrganization(organizationId)) {
+            throw new AccessDeniedException("User not authorized to access encounter ID: " + id);
         }
 
-        List<ServiceRequest> serviceRequests = serviceRequestRepository.findByEncounter(encounter);
-        List<ServiceRequestItem> items = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+        List<ServiceRequest> serviceRequests = new ArrayList<>();
+        try {
+            serviceRequests = serviceRequestRepository.findByEncounter(encounter);
+            log.debug("Found {} service requests for encounter ID: {}", serviceRequests.size(), id);
+        } catch (Exception e) {
+            log.error("Error fetching service requests for encounter ID: {}", id, e);
+            // Continue with empty list rather than failing completely
+        }
+
+        List<ServiceRequestItem> items = new ArrayList<>();
+        try {
+            if (!serviceRequests.isEmpty()) {
+                items = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
+                log.debug("Found {} service request items for encounter ID: {}", items.size(), id);
+            }
+        } catch (Exception e) {
+            log.error("Error fetching service request items for encounter ID: {}", id, e);
+            // Continue with empty list rather than failing completely
+        }
         
         List<String> testNames = items.stream()
-                .map(item -> item.getTest().getTestName())
+            .map(this::safeServiceRequestItemTestName)
+            .filter(name -> name != null && !name.isBlank())
                 .distinct()
                 .collect(Collectors.toList());
 
+        // Fetch specimen barcodes for all service requests
+        List<String> specimenBarcodes = new ArrayList<>();
+        if (!serviceRequests.isEmpty()) {
+            try {
+                specimenBarcodes = specimenRepository.findByServiceRequestIn(serviceRequests).stream()
+                        .map(specimen -> specimen.getBarcode())
+                        .filter(barcode -> barcode != null && !barcode.trim().isEmpty())
+                        .distinct()
+                        .collect(Collectors.toList());
+                log.debug("Found {} specimen barcodes for encounter ID: {}", specimenBarcodes.size(), id);
+            } catch (Exception e) {
+                log.error("Error fetching specimen barcodes for encounter ID: {}", id, e);
+                // Continue with empty list rather than failing completely
+            }
+        }
+
         EncounterDetailResponse response = new EncounterDetailResponse();
         response.setId(encounter.getId());
-        response.setPatientId(encounter.getPatient().getId());
-        response.setPatientName(encounter.getPatient().getFirstName() + " " + encounter.getPatient().getLastName());
         
-        // Calculate age
-        if (encounter.getPatient().getDateOfBirth() != null) {
-            response.setPatientAge(String.valueOf(java.time.Period.between(encounter.getPatient().getDateOfBirth(), LocalDate.now()).getYears()));
+        // Safely access patient data - handle null patient case
+        if (encounter.getPatient() != null) {
+            log.debug("Encounter has patient association");
+            try {
+                response.setPatientId(encounter.getPatient().getId());
+                String firstName = encounter.getPatient().getFirstName() != null ? encounter.getPatient().getFirstName() : "";
+                String lastName = encounter.getPatient().getLastName() != null ? encounter.getPatient().getLastName() : "";
+                response.setPatientName(firstName + " " + lastName);
+                
+                // Calculate age
+                if (encounter.getPatient().getDateOfBirth() != null) {
+                    response.setPatientAge(String.valueOf(java.time.Period.between(encounter.getPatient().getDateOfBirth(), LocalDate.now()).getYears()));
+                }
+                
+                response.setPatientGender(encounter.getPatient().getGender());
+                response.setMrnId(encounter.getPatient().getLocalMrnValue());
+            } catch (Exception e) {
+                log.error("Error accessing patient data for encounter ID: {}", id, e);
+                // Set defaults and continue rather than failing
+                response.setPatientId(null);
+                response.setPatientName("Unknown Patient");
+            }
+        } else {
+            log.warn("Encounter ID {} has no patient association", id);
+            response.setPatientName("Service Provider Only");
         }
         
-        response.setPatientGender(encounter.getPatient().getGender());
-        response.setMrnId(encounter.getPatient().getLocalMrnValue());
         response.setReferenceDoctor(encounter.getReferenceDoctor());
         response.setDate(encounter.getStartTime());
-        response.setStatus(encounter.getStatus());
+        response.setStatus(normalizeEncounterStatusForResponse(encounter.getStatus()));
         response.setLocalEncounterValue(encounter.getLocalEncounterValue());
         response.setTests(testNames);
         response.setServiceRequestIds(serviceRequests.stream().map(ServiceRequest::getId).collect(Collectors.toList()));
+        response.setSpecimenBarcodes(specimenBarcodes);
 
+        log.info("Successfully retrieved encounter details for ID: {}", id);
         return response;
     }
 
@@ -256,53 +338,37 @@ public class EncounterService {
             String patientName,
             String mrnId,
             Pageable pageable) {
+            Specification<Encounter> specification = (root, query, cb) -> {
+                List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();
 
-        // Build a dynamic Specification to avoid the PostgreSQL bytea type-mismatch
-        // that occurs when null String params are passed to a JPQL LIKE clause.
-        // Null predicates are simply omitted — no incorrect type is ever sent.
-        Specification<Encounter> spec = (root, query, cb) -> {
-            List<Predicate> predicates = new ArrayList<>();
+                predicates.add(cb.equal(root.get("patient").get("organization").get("id"), organizationId));
 
-            // Join to patient and organisation once
-            Join<Object, Object> patient = root.join("patient", JoinType.INNER);
-            Join<Object, Object> org = patient.join("organization", JoinType.INNER);
+                if (startDate != null) {
+                    OffsetDateTime start = startDate.atStartOfDay().atOffset(ZoneOffset.UTC);
+                    predicates.add(cb.greaterThanOrEqualTo(root.get("startTime"), start));
+                }
 
-            // Always filter by organisation
-            predicates.add(cb.equal(org.get("id"), organizationId));
+                if (endDate != null) {
+                    OffsetDateTime end = endDate.atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC);
+                    predicates.add(cb.lessThanOrEqualTo(root.get("startTime"), end));
+                }
 
-            // Date range — convert LocalDate to OffsetDateTime boundaries
-            if (startDate != null) {
-                OffsetDateTime start = startDate.atStartOfDay().atOffset(ZoneOffset.UTC);
-                predicates.add(cb.greaterThanOrEqualTo(root.get("startTime"), start));
-            }
-            if (endDate != null) {
-                OffsetDateTime end = endDate.atTime(LocalTime.MAX).atOffset(ZoneOffset.UTC);
-                predicates.add(cb.lessThanOrEqualTo(root.get("startTime"), end));
-            }
+                if (patientName != null && !patientName.isBlank()) {
+                    String likeValue = "%" + patientName.toLowerCase() + "%";
+                    predicates.add(cb.like(
+                            cb.lower(cb.concat(cb.concat(root.get("patient").get("firstName"), " "), root.get("patient").get("lastName"))),
+                            likeValue));
+                }
 
-            // Patient name LIKE (case-insensitive) — only added when non-null/non-blank
-            if (patientName != null && !patientName.isBlank()) {
-                String pattern = "%" + patientName.toLowerCase() + "%";
-                predicates.add(
-                    cb.like(
-                        cb.lower(
-                            cb.concat(cb.concat(patient.get("firstName"), " "), patient.get("lastName"))
-                        ),
-                        pattern
-                    )
-                );
-            }
+                if (mrnId != null && !mrnId.isBlank()) {
+                    predicates.add(cb.like(root.get("patient").get("localMrnValue"), "%" + mrnId + "%"));
+                }
 
-            // MRN LIKE — only added when non-null/non-blank
-            if (mrnId != null && !mrnId.isBlank()) {
-                String pattern = "%" + mrnId + "%";
-                predicates.add(cb.like(patient.get("localMrnValue"), pattern));
-            }
+                return cb.and(predicates.toArray(new jakarta.persistence.criteria.Predicate[0]));
+            };
 
-            return cb.and(predicates.toArray(new Predicate[0]));
-        };
-
-        Page<Encounter> encounterPage = encounterRepository.findAll(spec, pageable);
+            Page<Encounter> encounterPage = encounterRepository.findAll(specification, pageable);
+        
         return mapToPagedEncounterListResponse(encounterPage);
     }
 
@@ -345,10 +411,11 @@ public class EncounterService {
         List<ServiceRequestItem> items = serviceRequestItemRepository.findByServiceRequestIn(serviceRequests);
         
         Map<Integer, List<String>> encounterToTestsMap = items.stream()
-                .collect(Collectors.groupingBy(
-                        item -> item.getServiceRequest().getEncounter().getId(),
-                        Collectors.mapping(item -> item.getTest().getTestName(), Collectors.toList())
-                ));
+            .filter(item -> item.getServiceRequest() != null && item.getServiceRequest().getEncounter() != null)
+            .collect(Collectors.groupingBy(
+                item -> item.getServiceRequest().getEncounter().getId(),
+                Collectors.mapping(this::safeServiceRequestItemTestName, Collectors.toList())
+            ));
 
         List<EncounterListResponse> content = encounters.stream().map(encounter -> {
             List<String> testNames = encounterToTestsMap.getOrDefault(encounter.getId(), Collections.emptyList())
@@ -386,7 +453,7 @@ public class EncounterService {
         response.setPatientId(encounter.getPatient().getId());
         response.setStartTime(encounter.getStartTime());
         response.setEndTime(encounter.getEndTime());
-        response.setStatus(encounter.getStatus());
+        response.setStatus(normalizeEncounterStatusForResponse(encounter.getStatus()));
         response.setEncounterClass(encounter.getEncounterClass());
         response.setServiceProviderId(encounter.getServiceProvider().getId());
         response.setLocalEncounterSystem(encounter.getLocalEncounterSystem());
@@ -398,5 +465,43 @@ public class EncounterService {
     private String normalizeEncounterStatusCode(String status) {
         if (status == null) return null;
         return status.toLowerCase();
+    }
+
+    private String normalizeEncounterStatusForResponse(String status) {
+        if (status == null) return null;
+        return EncounterStatus.fromCode(status).map(Enum::name).orElse(status);
+    }
+
+    private String safeServiceRequestItemTestName(ServiceRequestItem item) {
+        if (item == null) {
+            return null;
+        }
+        if (item.getTest() != null && item.getTest().getTestName() != null && !item.getTest().getTestName().isBlank()) {
+            return item.getTest().getTestName();
+        }
+        if (item.getPanel() != null && item.getPanel().getPanelName() != null && !item.getPanel().getPanelName().isBlank()) {
+            return item.getPanel().getPanelName();
+        }
+        return "Unknown Test";
+    }
+
+    private Integer resolveEncounterOrganizationId(Encounter encounter) {
+        if (encounter == null) {
+            return null;
+        }
+        if (encounter.getServiceProvider() != null && encounter.getServiceProvider().getId() != null) {
+            return encounter.getServiceProvider().getId();
+        }
+        if (encounter.getPatient() != null && encounter.getPatient().getOrganization() != null) {
+            return encounter.getPatient().getOrganization().getId();
+        }
+        return null;
+    }
+
+    private Integer resolveOrganizationId(Organization organization, String entityName, Integer entityId) {
+        if (organization == null || organization.getId() == null) {
+            throw new AccessDeniedException("Cannot determine organization for " + entityName + " ID: " + entityId);
+        }
+        return organization.getId();
     }
 }

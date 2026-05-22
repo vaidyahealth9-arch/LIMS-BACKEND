@@ -37,21 +37,21 @@ public class TestAnalyteController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')") // Various roles can view
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')") // Various roles can view
     public ResponseEntity<TestAnalyteResponse> getTestAnalyteById(@PathVariable Integer id) {
         TestAnalyteResponse response = testAnalyteService.getTestAnalyteById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<List<TestAnalyteResponse>> getAllTestAnalytes() {
         List<TestAnalyteResponse> responses = testAnalyteService.getAllTestAnalytes();
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
     @GetMapping("/by-parent-test/{parentTestId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<List<TestAnalyteResponse>> getTestAnalytesByParentTest(@PathVariable Integer parentTestId) {
         List<TestAnalyteResponse> responses = testAnalyteService.getTestAnalytesByParentTest(parentTestId);
         return new ResponseEntity<>(responses, HttpStatus.OK);

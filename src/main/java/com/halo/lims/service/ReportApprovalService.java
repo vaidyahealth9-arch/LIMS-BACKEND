@@ -99,7 +99,7 @@ public class ReportApprovalService {
                     reportMetadata);
         }
 
-        Set<String> allowedRoles = Set.of("PATHOLOGIST", "DOCTOR", "RADIOLOGIST", "ADMIN");
+        Set<String> allowedRoles = Set.of("PATHOLOGIST", "DOCTOR", "ADMIN");
         boolean approvedByDoctor = approvingUser.get().getRoles() != null
                 && approvingUser.get().getRoles().stream()
                 .map(r -> r == null ? "" : r.trim().toUpperCase(Locale.ENGLISH).replaceFirst("^ROLE_", ""))

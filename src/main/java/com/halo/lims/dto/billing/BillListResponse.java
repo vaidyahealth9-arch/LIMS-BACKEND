@@ -10,6 +10,7 @@ public class BillListResponse {
     private OffsetDateTime invoiceDate;
     private String patientName;
     private String patientMrn;
+    private Integer encounterId;
     private String localEncounterId;
     private java.math.BigDecimal totalAmount;
     private java.math.BigDecimal discountAmount;
@@ -20,6 +21,7 @@ public class BillListResponse {
     private List<Integer> serviceRequestIds;
     private List<String> tests;
     private List<TestItem> testItems;
+    private String encounterStatus;
 
     public static class TestItem {
         private String testName;
@@ -34,12 +36,13 @@ public class BillListResponse {
         public java.math.BigDecimal getPrice() { return price; }
     }
 
-    public BillListResponse(Integer billId, String invoiceNumber, OffsetDateTime invoiceDate, String patientName, String patientMrn, String localEncounterId, java.math.BigDecimal totalAmount, java.math.BigDecimal discountAmount, java.math.BigDecimal netAmount, java.math.BigDecimal paidAmount, java.math.BigDecimal discountPercentage, String status, List<Integer> serviceRequestIds, List<String> tests, List<TestItem> testItems) {
+    public BillListResponse(Integer billId, String invoiceNumber, OffsetDateTime invoiceDate, String patientName, String patientMrn, Integer encounterId, String localEncounterId, java.math.BigDecimal totalAmount, java.math.BigDecimal discountAmount, java.math.BigDecimal netAmount, java.math.BigDecimal paidAmount, java.math.BigDecimal discountPercentage, String status, List<Integer> serviceRequestIds, List<String> tests, List<TestItem> testItems, String encounterStatus) {
         this.billId = billId;
         this.invoiceNumber = invoiceNumber;
         this.invoiceDate = invoiceDate;
         this.patientName = patientName;
         this.patientMrn = patientMrn;
+        this.encounterId = encounterId;
         this.localEncounterId = localEncounterId;
         this.totalAmount = totalAmount;
         this.discountAmount = discountAmount;
@@ -50,6 +53,7 @@ public class BillListResponse {
         this.serviceRequestIds = serviceRequestIds;
         this.tests = tests;
         this.testItems = testItems;
+        this.encounterStatus = encounterStatus;
     }
 
     public Integer getBillId() {
@@ -98,6 +102,14 @@ public class BillListResponse {
 
     public void setLocalEncounterId(String localEncounterId) {
         this.localEncounterId = localEncounterId;
+    }
+
+    public Integer getEncounterId() {
+        return encounterId;
+    }
+
+    public void setEncounterId(Integer encounterId) {
+        this.encounterId = encounterId;
     }
 
     public java.math.BigDecimal getTotalAmount() {
@@ -170,5 +182,13 @@ public class BillListResponse {
 
     public void setTestItems(List<TestItem> testItems) {
         this.testItems = testItems;
+    }
+
+    public String getEncounterStatus() {
+        return encounterStatus;
+    }
+
+    public void setEncounterStatus(String encounterStatus) {
+        this.encounterStatus = encounterStatus;
     }
 }

@@ -24,12 +24,12 @@ public class UserController {
 
     /**
      * Creates a new user with an associated practitioner profile.
-     * Only accessible by ADMIN or MANAGER roles.
+    * Only accessible by ADMIN roles.
      * @param request The DTO containing user and practitioner details.
      * @return The created UserResponse.
      */
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponse> createUser(@Valid @RequestBody UserCreateRequest request) {
         UserResponse response = userService.createUser(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
@@ -37,13 +37,13 @@ public class UserController {
 
     /**
      * Updates an existing user's details, roles, or practitioner profile.
-     * Only accessible by ADMIN or MANAGER roles.
+    * Only accessible by ADMIN roles.
      * @param id The ID of the user to update.
      * @param request The DTO containing update details.
      * @return The updated UserResponse.
      */
     @PutMapping("/{id}")
-//    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+//    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponse> updateUser(@PathVariable Integer id, @Valid @RequestBody UserUpdateRequest request) {
         UserResponse response = userService.updateUser(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -51,13 +51,13 @@ public class UserController {
 
     /**
      * Toggles a user's active status (enables/disables login access).
-     * Only accessible by ADMIN or MANAGER roles.
+    * Only accessible by ADMIN roles.
      * @param id The ID of the user.
      * @param isActive The new active status.
      * @return The updated UserResponse.
      */
     @PatchMapping("/{id}/active")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<UserResponse> toggleUserActiveStatus(@PathVariable Integer id, @RequestParam boolean isActive) {
         UserResponse response = userService.toggleUserActiveStatus(id, isActive);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -65,12 +65,12 @@ public class UserController {
 
     /**
      * Retrieves a single user by ID.
-     * Accessible by ADMIN, MANAGER, and the user themselves (if implemented).
+    * Accessible by ADMIN and the user themselves (if implemented).
      * @param id The ID of the user.
      * @return The UserResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER') or authentication.principal.id == #id")
+    @PreAuthorize("hasAnyRole('ADMIN') or authentication.principal.id == #id")
     public ResponseEntity<UserResponse> getUserById(@PathVariable Integer id) {
         UserResponse response = userService.getUserById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -78,11 +78,11 @@ public class UserController {
 
     /**
      * Retrieves all users.
-     * Only accessible by ADMIN or MANAGER roles.
+    * Only accessible by ADMIN roles.
      * @return A list of UserResponses.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> getAllUsers() {
         List<UserResponse> responses = userService.getAllUsers();
         return new ResponseEntity<>(responses, HttpStatus.OK);
@@ -90,12 +90,12 @@ public class UserController {
 
     /**
      * Retrieves users belonging to a specific organization.
-     * Only accessible by ADMIN or MANAGER roles.
+    * Only accessible by ADMIN roles.
      * @param organizationId The ID of the organization.
      * @return A list of UserResponses.
      */
     @GetMapping("/by-organization/{organizationId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
+    @PreAuthorize("hasAnyRole('ADMIN')")
     public ResponseEntity<List<UserResponse>> getUsersByOrganization(@PathVariable Integer organizationId) {
         List<UserResponse> responses = userService.getUsersByOrganization(organizationId);
         return new ResponseEntity<>(responses, HttpStatus.OK);

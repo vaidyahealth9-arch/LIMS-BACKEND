@@ -152,8 +152,10 @@
       margin-bottom: 4px;
     }
     .insight-item::before { content: "• "; color: #3b82f6; }
-    .insight-item.critical { color: #991b1b; }
+    .insight-item.critical { color: #991b1b; background: #fff1f2; border-radius: 4px; padding: 2px 8px; font-weight: 800; }
     .insight-item.critical::before { color: #ef4444; }
+    .insight-item.recommendation { color: #1e40af; font-weight: 700; font-style: italic; }
+    .insight-item.recommendation::before { content: "💡 "; }
 
     /* CHARTS GRID */
     .chart-container {
@@ -175,27 +177,27 @@
     /* Simple inline layout using nth-child */
     .chart-card:nth-child(even) { margin-right: 0; }
 
-    .chart-header { display: table; width: 100%; margin-bottom: 6px; }
-    .chart-title-cell { display: table-cell; vertical-align: middle; }
-    .chart-title { font-size: 11px; font-weight: 800; color: #0f172a; display: block; line-height: 1.2; }
-    .chart-unit { font-size: 8px; color: #64748b; font-weight: 600; }
-    .chart-val-cell { display: table-cell; text-align: right; vertical-align: middle; font-size: 16px; font-weight: 800; color: #0f172a; }
+    .chart-header { margin-bottom: 8px; border-bottom: 1px solid #f1f5f9; padding-bottom: 6px; }
+    .chart-title { font-size: 10px; font-weight: 800; color: #1e293b; text-transform: uppercase; letter-spacing: 0.02em; }
+    .chart-unit { font-size: 8px; color: #64748b; font-weight: 600; margin-top: 1px; }
+    .chart-val-container { text-align: right; }
+    .chart-val { font-size: 18px; font-weight: 900; color: #0f172a; line-height: 1; }
     
-    .chart-body { display: table; width: 100%; margin-top: 8px; table-layout: fixed; }
-    .history-chart-cell { display: table-cell; width: 45%; vertical-align: top; border-right: 1px dashed #e2e8f0; padding-right: 6px; }
-    .range-chart-cell { display: table-cell; width: 55%; vertical-align: bottom; padding-left: 6px; }
+    .chart-body { margin-top: 6px; }
+    .history-chart-section { margin-bottom: 16px; min-height: 80px; }
+    .range-chart-section { margin-top: 10px; border-top: 1px dashed #cbd5e1; padding-top: 10px; }
 
     /* CUSTOM BAR CHART (Reference Range) */
-    .range-bar-container { position: relative; width: 100%; height: 14px; background: #f1f5f9; border-radius: 7px; margin-bottom: 4px; border: 1px solid #cbd5e1; }
-    .range-normal-zone { position: absolute; height: 100%; background: #dcfce7; left: 20%; width: 60%; border-left: 1px dashed #4ade80; border-right: 1px dashed #4ade80; }
-    .range-marker { position: absolute; height: 18px; width: 4px; background: #0f172a; border-radius: 2px; top: -3px; margin-left: -2px; }
-    .range-marker.critical { background: #dc2626; box-shadow: 0 0 2px rgba(220, 38, 38, 0.5); }
-    .range-marker.borderline { background: #ea580c; }
+    .range-bar-container { position: relative; width: 100%; height: 10px; background: #f8fafc; border-radius: 5px; margin-bottom: 4px; border: 1px solid #e2e8f0; overflow: hidden; }
+    .range-normal-zone { position: absolute; height: 100%; background: #dcfce7; left: 20%; width: 60%; opacity: 0.8; }
+    .range-marker { position: absolute; height: 100%; width: 3px; background: #1e293b; left: 50%; z-index: 2; }
+    .range-marker.critical { background: #dc2626; width: 4px; }
+    .range-marker.borderline { background: #f97316; }
     
-    .range-axes { display: table; width: 100%; }
-    .range-axis-lbl { display: table-cell; font-size: 7px; color: #64748b; font-weight: 700; width: 33%; }
+    .range-axes { display: table; width: 100%; margin-top: 2px; }
+    .range-axis-lbl { display: table-cell; font-size: 7px; color: #94a3b8; font-weight: 700; width: 33%; }
     .range-axis-lbl.left { text-align: left; }
-    .range-axis-lbl.center { text-align: center; color: #16a34a; }
+    .range-axis-lbl.center { text-align: center; color: #16a34a; font-size: 6px; text-transform: uppercase; }
     .range-axis-lbl.right { text-align: right; }
 
     /* LAB RESULTS SECTION */
@@ -365,11 +367,12 @@
       
       <!-- Smart Insights -->
       <div class="insight-box">
-        <div th:each="insight : ${report.insights}" class="insight-item" th:classappend="${#strings.containsIgnoreCase(insight, 'abnormal')} ? 'critical' : ''">
+        <div th:each="insight : ${report.insights}" class="insight-item" 
+             th:classappend="${#strings.containsIgnoreCase(insight, 'CRITICAL')} ? 'critical' : (${#strings.containsIgnoreCase(insight, 'RECOMMENDATION')} ? 'recommendation' : '')">
           <span th:text="${insight}">Insight text</span>
         </div>
         <div th:if="${report.insights == null or report.insights.isEmpty()}" class="insight-item">
-          <span>All parameters within normal reference ranges. No critical patterns detected.</span>
+          <span>All parameters within physiological reference ranges. No abnormal patterns detected.</span>
         </div>
       </div>
 
@@ -380,38 +383,56 @@
             
             <div class="chart-container avoid-break">
               <!-- Inline-blocks automatically wrap. Native CSS flexbox isn't perfectly supported in PDF renderer so we use float-like inline-blocks -->
-              <div class="chart-card" th:each="analyte : ${group.analytes}">
-                <div class="chart-header">
-                  <div class="chart-title-cell">
-                      <span class="chart-title" th:text="${analyte.analyteName}">Analyte Name</span>
-                      <span class="chart-unit" th:if="${analyte.unit != null and analyte.unit != ''}" th:text="${analyte.unit}">unit</span>
-                  </div>
-                  <div class="chart-val-cell c-blue-600" th:classappend="${analyte.isAbnormal} ? 'c-red-600' : ''" th:text="${analyte.value}">Val</div>
-                </div>
-                <div class="chart-body">
-                  <!-- Historical Line Chart -->
-                  <div class="history-chart-cell">
-                      <p class="text-xxs fw8 c-slate-400 uppercase tracking-wide mb-1">■ Trend</p>
-                      <div th:if="${analyte.pointCount > 1}" th:utext="${analyte.sparklineSvg}" style="text-align:center;"></div>
-                      <div th:if="${analyte.pointCount <= 1}">
-                          <p class="text-xxs c-slate-400" style="padding-top:16px; text-align:center;">No History</p>
-                      </div>
-                  </div>
-                  <!-- Range Bar Chart -->
-                  <div class="range-chart-cell">
-                      <p class="text-xxs fw8 c-slate-400 uppercase tracking-wide mb-1" style="text-align:right;">■ vs Range</p>
-                      <div class="range-bar-container">
-                          <div class="range-normal-zone"></div>
-                          <div class="range-marker" th:classappend="${analyte.statusClass == 'status-abnormal'} ? 'critical' : (${analyte.statusClass == 'status-borderline'} ? 'borderline' : '')" th:style="'left:' + ${analyte.markerPercent} + '%;'"></div>
-                      </div>
-                      <div class="range-axes">
-                          <div class="range-axis-lbl left" th:text="${analyte.refLowDisplay != '' ? analyte.refLowDisplay : 'Low'}">0</div>
-                          <div class="range-axis-lbl center">Nrml</div>
-                          <div class="range-axis-lbl right" th:text="${analyte.refHighDisplay != '' ? analyte.refHighDisplay : 'High'}">100</div>
-                      </div>
-                  </div>
-                </div>
-              </div>
+               <div class="chart-card" th:each="analyte : ${group.analytes}">
+                 <div class="chart-header tbl">
+                   <div class="tbl-cell">
+                       <span class="chart-title" th:text="${analyte.analyteName}">Analyte Name</span>
+                       <p class="chart-unit" th:if="${analyte.unit != null and analyte.unit != ''}" th:text="${analyte.unit}">unit</p>
+                   </div>
+                   <div class="tbl-cell chart-val-container">
+                       <span class="chart-val c-blue-600" th:classappend="${analyte.isAbnormal} ? 'c-red-600' : ''" th:text="${analyte.value}">Val</span>
+                   </div>
+                 </div>
+                 
+                 <div class="chart-body">
+                   <!-- Historical Line Chart -->
+                   <div class="history-chart-section">
+                       <p class="text-xxs fw8 c-slate-400 uppercase tracking-wide mb-2">Trend Analysis</p>
+                       <div th:if="${analyte.pointCount > 1}" th:utext="${analyte.sparklineSvg}" style="text-align:center; height: 60px; overflow: hidden; display: block;"></div>
+                       <div th:if="${analyte.pointCount <= 1}" style="height: 60px; text-align: center; display: table; width: 100%; border: 1px dashed #f1f5f9; border-radius: 6px;">
+                           <p class="tbl-mid text-xxs c-slate-300 uppercase tracking-widest">Baseline Entry</p>
+                       </div>
+                   </div>
+                   
+                   <!-- Range Bar Chart -->
+                    <div class="range-chart-section">
+                        <div class="tbl" style="margin-bottom: 4px;">
+                            <div class="tbl-cell text-xxs fw8 c-slate-400 uppercase tracking-wide">Result vs Range</div>
+                            <div class="tbl-cell text-right text-xxs fw8" th:classappend="${analyte.isAbnormal} ? 'c-red-600' : 'c-green-600'" th:text="${analyte.status}">Normal</div>
+                        </div>
+                        
+                        <div class="range-bar-container">
+                            <div class="range-normal-zone"></div>
+                            <div class="range-marker" th:classappend="${analyte.statusClass == 'status-abnormal'} ? 'critical' : (${analyte.statusClass == 'status-borderline'} ? 'borderline' : '')" th:style="'left:' + ${analyte.markerPercent} + '%;'"></div>
+                        </div>
+                        <div class="range-axes">
+                            <div class="range-axis-lbl left" th:text="${analyte.refLowDisplay != '' ? analyte.refLowDisplay : 'L'}">0</div>
+                            <div class="range-axis-lbl center">Normal Range</div>
+                            <div class="range-axis-lbl right" th:text="${analyte.refHighDisplay != '' ? analyte.refHighDisplay : 'H'}">100</div>
+                        </div>
+                    </div>
+
+                    <!-- Analyte Specific Interpretation -->
+                    <div th:if="${analyte.interpretation != null and analyte.interpretation != ''}" class="interpretation-box" style="margin-top: 10px; padding: 6px 10px;">
+                        <p class="interpretation-title" style="font-size: 8px; color: #64748b;">Clinical Insight</p>
+                        <p style="font-size: 9px; line-height: 1.4;" th:text="${analyte.interpretation}">Interpretation text</p>
+                    </div>
+                 </div>
+               </div>
+               <div class="interpretation-box avoid-break" th:if="${group.interpretation != null and group.interpretation != '' and group.interpretation != 'No specific interpretation available. Correlate clinically.'}">
+                   <p class="interpretation-title">Panel Interpretation</p>
+                   <p th:text="${group.interpretation}">Panel level interpretation based on cross-analyte rules.</p>
+               </div>
             </div>
 
         </div>
@@ -434,8 +455,8 @@
           </tr>
         </thead>
         <tbody>
-          <!-- We style the whole row if TR is abnormal in regular report for visual emphasis -->
-          <tr th:each="analyte : ${group.analytes}" class="avoid-break" th:classappend="${report.reportType != 'smart' and analyte.isAbnormal} ? 'bg-slate-50' : ''">
+          <th:block th:each="analyte : ${group.analytes}">
+          <tr class="avoid-break" th:classappend="${report.reportType != 'smart' and analyte.isAbnormal} ? 'bg-slate-50' : ''">
             <td class="td-analyte" th:text="${analyte.analyteName}">Name</td>
             
             <td class="td-result" style="text-align: center;">
@@ -451,13 +472,22 @@
                     th:text="${analyte.status}">Normal</span>
             </td>
           </tr>
+          </th:block>
         </tbody>
       </table>
 
       <!-- INTERPRETATION -->
-      <div th:if="${!#strings.isEmpty(group.interpretation)}" class="interpretation-box avoid-break">
+      <div th:if="${!#strings.isEmpty(group.interpretation) or group.analytes.?[interpretation != null and interpretation != ''].size() > 0}" class="interpretation-box avoid-break">
         <p class="interpretation-title c-slate-500">Clinical Interpretation</p>
-        <p th:text="${group.interpretation}">Text</p>
+        
+        <!-- Panel Level Interpretation -->
+        <p th:if="${!#strings.isEmpty(group.interpretation)}" th:text="${group.interpretation}" style="margin-bottom: 6px;">Panel Text</p>
+        
+        <!-- Analyte Level Interpretations (Notes) -->
+        <div th:each="analyte : ${group.analytes}" th:if="${analyte.interpretation != null and analyte.interpretation != ''}" style="margin-top: 4px; border-top: 1px dashed #e2e8f0; padding-top: 4px;">
+           <span style="font-weight: 800; color: #64748b; text-transform: uppercase; font-size: 7px;" th:text="${analyte.analyteName} + ': '">ANALYTE: </span>
+           <span style="font-size: 8.5px; color: #475569;" th:text="${analyte.interpretation}">Interpretation text</span>
+        </div>
       </div>
 
     </div>

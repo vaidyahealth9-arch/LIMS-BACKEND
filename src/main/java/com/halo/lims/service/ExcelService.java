@@ -1,7 +1,10 @@
 package com.halo.lims.service;
 
+import com.halo.lims.dto.billing.BillResponse;
 import com.halo.lims.model.Patient;
+import com.halo.lims.model.Bill;
 import com.halo.lims.repository.PatientRepository;
+import com.halo.lims.repository.BillRepository;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.Row;
 import org.apache.poi.ss.usermodel.Sheet;
@@ -18,10 +21,13 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
+import java.util.LinkedHashSet;
 import java.util.HashMap;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Service
 public class ExcelService {
@@ -29,9 +35,13 @@ public class ExcelService {
     private static final Logger logger = LoggerFactory.getLogger(ExcelService.class);
 
     private final PatientRepository patientRepository;
+    private final BillRepository billRepository;
+    private final BillingService billingService;
 
-    public ExcelService(PatientRepository patientRepository) {
+    public ExcelService(PatientRepository patientRepository, BillRepository billRepository, BillingService billingService) {
         this.patientRepository = patientRepository;
+        this.billRepository = billRepository;
+        this.billingService = billingService;
     }
 
     public void importPatients(MultipartFile file) {
@@ -82,7 +92,24 @@ public class ExcelService {
     }
 
     public ByteArrayInputStream exportPatients(List<Patient> patients) throws IOException {
-        String[] columns = {"ID", "First Name", "Last Name", "Gender", "Date of Birth", "Phone", "Email"};
+        String[] columns = {
+                "ID",
+                "MRN",
+                "First Name",
+                "Last Name",
+                "Gender",
+                "Date of Birth",
+                "Phone",
+                "Email",
+                "Tests Done",
+                "Invoice Numbers",
+                "Bill Statuses",
+                "Total Billed",
+                "Total Paid",
+                "Total Due",
+                "Last Payment Method",
+                "Last Payment Date"
+        };
 
         try (Workbook workbook = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream();) {
             Sheet sheet = workbook.createSheet("Patients");
@@ -97,21 +124,85 @@ public class ExcelService {
             int rowIdx = 1;
             for (Patient patient : patients) {
                 Row row = sheet.createRow(rowIdx++);
+                List<BillResponse> billResponses = getBillResponsesForPatient(patient.getId());
+                Set<String> testNames = new LinkedHashSet<>();
+                Set<String> invoiceNumbers = new LinkedHashSet<>();
+                Set<String> billStatuses = new LinkedHashSet<>();
+
+                java.math.BigDecimal totalBilled = java.math.BigDecimal.ZERO;
+                java.math.BigDecimal totalPaid = java.math.BigDecimal.ZERO;
+                java.math.BigDecimal totalDue = java.math.BigDecimal.ZERO;
+                String lastPaymentMethod = "";
+                String lastPaymentDate = "";
+
+                for (BillResponse billResponse : billResponses) {
+                    if (billResponse.getInvoiceNumber() != null) {
+                        invoiceNumbers.add(billResponse.getInvoiceNumber());
+                    }
+                    if (billResponse.getStatus() != null) {
+                        billStatuses.add(billResponse.getStatus());
+                    }
+                    totalBilled = totalBilled.add(safeBigDecimal(billResponse.getNetAmount()));
+                    totalPaid = totalPaid.add(safeBigDecimal(billResponse.getPaidAmount()));
+                    totalDue = totalDue.add(safeBigDecimal(billResponse.getDueAmount()));
+                    if (billResponse.getPaymentMethod() != null && !billResponse.getPaymentMethod().isBlank()) {
+                        lastPaymentMethod = billResponse.getPaymentMethod();
+                    }
+                    if (billResponse.getPaymentDate() != null) {
+                        lastPaymentDate = billResponse.getPaymentDate().toString();
+                    }
+
+                    if (billResponse.getServiceRequests() != null) {
+                        billResponse.getServiceRequests().forEach(serviceRequest -> {
+                            if (serviceRequest.getRequestedTests() != null) {
+                                serviceRequest.getRequestedTests().forEach(test -> {
+                                    if (test.getTestName() != null && !test.getTestName().isBlank()) {
+                                        testNames.add(test.getTestName());
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }
 
                 row.createCell(0).setCellValue(patient.getId());
-                row.createCell(1).setCellValue(patient.getFirstName());
-                row.createCell(2).setCellValue(patient.getLastName());
-                row.createCell(3).setCellValue(patient.getGender());
+                row.createCell(1).setCellValue(patient.getLocalMrnValue());
+                row.createCell(2).setCellValue(patient.getFirstName());
+                row.createCell(3).setCellValue(patient.getLastName());
+                row.createCell(4).setCellValue(patient.getGender());
                 if (patient.getDateOfBirth() != null) {
-                    row.createCell(4).setCellValue(patient.getDateOfBirth().toString());
+                    row.createCell(5).setCellValue(patient.getDateOfBirth().toString());
                 }
-                row.createCell(5).setCellValue(patient.getContactPhone());
-                row.createCell(6).setCellValue(patient.getContactEmail());
+                row.createCell(6).setCellValue(patient.getContactPhone());
+                row.createCell(7).setCellValue(patient.getContactEmail());
+                row.createCell(8).setCellValue(String.join(", ", testNames));
+                row.createCell(9).setCellValue(String.join(", ", invoiceNumbers));
+                row.createCell(10).setCellValue(String.join(", ", billStatuses));
+                row.createCell(11).setCellValue(totalBilled.doubleValue());
+                row.createCell(12).setCellValue(totalPaid.doubleValue());
+                row.createCell(13).setCellValue(totalDue.doubleValue());
+                row.createCell(14).setCellValue(lastPaymentMethod);
+                row.createCell(15).setCellValue(lastPaymentDate);
             }
 
             workbook.write(out);
             return new ByteArrayInputStream(out.toByteArray());
         }
+    }
+
+    private List<BillResponse> getBillResponsesForPatient(Integer patientId) {
+        if (patientId == null) {
+            return List.of();
+        }
+
+        List<Bill> bills = billRepository.findByPatient_Id(patientId);
+        return bills.stream()
+                .map(bill -> billingService.getBillById(bill.getId()))
+                .collect(Collectors.toList());
+    }
+
+    private java.math.BigDecimal safeBigDecimal(java.math.BigDecimal value) {
+        return value == null ? java.math.BigDecimal.ZERO : value;
     }
 
     private String getStringCellValue(Cell cell) {

@@ -56,7 +56,7 @@ public class TestController {
      * @return The TestResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<TestResponse> getTestById(@PathVariable Integer id) {
         TestResponse response = testService.getTestById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -68,7 +68,7 @@ public class TestController {
      * @return A list of TestResponses.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<List<TestResponse>> getAllTests() {
         List<TestResponse> responses = testService.getAllTests();
         return new ResponseEntity<>(responses, HttpStatus.OK);
@@ -81,7 +81,7 @@ public class TestController {
      * @return A list of matching TestResponses.
      */
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<List<TestResponse>> searchTestsByName(@RequestParam String nameQuery) {
         List<TestResponse> responses = testService.searchTestsByName(nameQuery);
         return new ResponseEntity<>(responses, HttpStatus.OK);

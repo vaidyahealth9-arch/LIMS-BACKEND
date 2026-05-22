@@ -56,7 +56,7 @@ public class SpecimenTypeController {
      * @return The SpecimenTypeResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<SpecimenTypeResponse> getSpecimenTypeById(@PathVariable Integer id) {
         SpecimenTypeResponse response = specimenTypeService.getSpecimenTypeById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -68,7 +68,7 @@ public class SpecimenTypeController {
      * @return A list of SpecimenTypeResponses.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<List<SpecimenTypeResponse>> getAllSpecimenTypes() {
         List<SpecimenTypeResponse> responses = specimenTypeService.getAllSpecimenTypes();
         return new ResponseEntity<>(responses, HttpStatus.OK);

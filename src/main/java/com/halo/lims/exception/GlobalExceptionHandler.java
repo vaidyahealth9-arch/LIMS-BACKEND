@@ -1,5 +1,6 @@
 package com.halo.lims.exception;
 
+import com.halo.lims.dto.ApiErrorResponse;
 import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -7,13 +8,12 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.validation.FieldError;
 import org.springframework.security.access.AccessDeniedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
-import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
-import java.time.OffsetDateTime;
+import java.time.LocalDateTime;
 import java.util.LinkedHashMap;
 import java.util.Map;
 
@@ -39,7 +39,7 @@ public class GlobalExceptionHandler {
             MethodArgumentNotValidException ex,
             HttpServletRequest request
     ) {
-        Map<String, String> errors = new LinkedHashMap<>();
+        Map<String, Object> errors = new LinkedHashMap<>();
         ex.getBindingResult().getAllErrors().forEach((error) -> {
             String fieldName = ((FieldError) error).getField();
             String errorMessage = error.getDefaultMessage();
@@ -61,11 +61,11 @@ public class GlobalExceptionHandler {
             IllegalArgumentException ex,
             HttpServletRequest request
     ) {
-        Map<String, String> fieldErrors = null;
+        Map<String, Object> fieldErrors = null;
         String normalizedMessage = ex.getMessage() != null ? ex.getMessage().toLowerCase() : "";
         if (normalizedMessage.contains("username already exists")) {
-                fieldErrors = new LinkedHashMap<>();
-                fieldErrors.put("username", ex.getMessage());
+            fieldErrors = new LinkedHashMap<>();
+            fieldErrors.put("username", ex.getMessage());
         }
 
         ApiErrorResponse response = buildErrorResponse(
@@ -94,63 +94,63 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status).body(response);
     }
 
-        @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-        public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
-                        HttpRequestMethodNotSupportedException ex,
-                        HttpServletRequest request
-        ) {
-                String message = ex.getMessage() != null ? ex.getMessage() : "Request method is not supported";
-                ApiErrorResponse response = buildErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, message, request, null);
-                return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(response);
-        }
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ApiErrorResponse> handleMethodNotSupported(
+            HttpRequestMethodNotSupportedException ex,
+            HttpServletRequest request
+    ) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Request method is not supported";
+        ApiErrorResponse response = buildErrorResponse(HttpStatus.METHOD_NOT_ALLOWED, message, request, null);
+        return ResponseEntity.status(HttpStatus.METHOD_NOT_ALLOWED).body(response);
+    }
 
-        @ExceptionHandler(NoResourceFoundException.class)
-        public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
-                        NoResourceFoundException ex,
-                        HttpServletRequest request
-        ) {
-                String message = ex.getMessage() != null ? ex.getMessage() : "Requested resource not found";
-                ApiErrorResponse response = buildErrorResponse(HttpStatus.NOT_FOUND, message, request, null);
-                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
-        }
+    @ExceptionHandler(NoResourceFoundException.class)
+    public ResponseEntity<ApiErrorResponse> handleNoResourceFound(
+            NoResourceFoundException ex,
+            HttpServletRequest request
+    ) {
+        String message = ex.getMessage() != null ? ex.getMessage() : "Requested resource not found";
+        ApiErrorResponse response = buildErrorResponse(HttpStatus.NOT_FOUND, message, request, null);
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+    }
 
-        @ExceptionHandler(DataIntegrityViolationException.class)
-        public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(
-                        DataIntegrityViolationException ex,
-                        HttpServletRequest request
-        ) {
-                String rawMessage = ex.getMostSpecificCause() != null
-                        ? ex.getMostSpecificCause().getMessage()
-                        : ex.getMessage();
-                String normalizedMessage = rawMessage != null ? rawMessage.toLowerCase() : "";
+    @ExceptionHandler(DataIntegrityViolationException.class)
+    public ResponseEntity<ApiErrorResponse> handleDataIntegrityViolation(
+            DataIntegrityViolationException ex,
+            HttpServletRequest request
+    ) {
+        String rawMessage = ex.getMostSpecificCause() != null
+                ? ex.getMostSpecificCause().getMessage()
+                : ex.getMessage();
+        String normalizedMessage = rawMessage != null ? rawMessage.toLowerCase() : "";
 
-                String message;
-                Map<String, String> fieldErrors = null;
-                if (normalizedMessage.contains("username") || normalizedMessage.contains("lims_user_username")) {
-                        message = "Username already exists. Please choose a different username.";
-                        fieldErrors = new LinkedHashMap<>();
-                        fieldErrors.put("username", message);
-                } else if (normalizedMessage.contains("local_identifier_value") || normalizedMessage.contains("practitioners_local_identifier_value")) {
-                        message = "Practitioner identifier generation conflicted with an existing record. Please retry creating the user.";
-                } else if (normalizedMessage.contains("practitioner_id") || normalizedMessage.contains("lims_user_practitioner_id")) {
-                        message = "This practitioner is already linked to another user account.";
-                } else if (normalizedMessage.contains("signature_image_asset_id")) {
-                        message = "Operation failed while saving the user signature image. Please try again.";
-                } else if (normalizedMessage.contains("uk_patients_contact_phone_normalized")
-                        || normalizedMessage.contains("contact_phone_normalized")) {
-                        message = "A patient with this mobile number already exists.";
-                } else if (normalizedMessage.contains("duplicate key") || normalizedMessage.contains("already exists")) {
-                        message = "Operation failed because a record with the same unique value already exists. Please review duplicate IDs/codes and try again.";
-                } else if (normalizedMessage.contains("foreign key") || normalizedMessage.contains("is still referenced")) {
-                        message = "Operation failed due to related records. Please remove dependencies first.";
-                } else if (rawMessage != null && !rawMessage.isBlank()) {
-                        message = "Operation failed due to data integrity constraints: " + rawMessage;
-                } else {
-                        message = "Operation failed due to data integrity constraints.";
-                }
-                ApiErrorResponse response = buildErrorResponse(HttpStatus.CONFLICT, message, request, fieldErrors);
-                return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+        String message;
+        Map<String, Object> fieldErrors = null;
+        if (normalizedMessage.contains("username") || normalizedMessage.contains("lims_user_username")) {
+            message = "Username already exists. Please choose a different username.";
+            fieldErrors = new LinkedHashMap<>();
+            fieldErrors.put("username", message);
+        } else if (normalizedMessage.contains("local_identifier_value") || normalizedMessage.contains("practitioners_local_identifier_value")) {
+            message = "Practitioner identifier generation conflicted with an existing record. Please retry creating the user.";
+        } else if (normalizedMessage.contains("practitioner_id") || normalizedMessage.contains("lims_user_practitioner_id")) {
+            message = "This practitioner is already linked to another user account.";
+        } else if (normalizedMessage.contains("signature_image_asset_id")) {
+            message = "Operation failed while saving the user signature image. Please try again.";
+        } else if (normalizedMessage.contains("uk_patients_contact_phone_normalized")
+                || normalizedMessage.contains("contact_phone_normalized")) {
+            message = "A patient with this mobile number already exists.";
+        } else if (normalizedMessage.contains("duplicate key") || normalizedMessage.contains("already exists")) {
+            message = "Operation failed because a record with the same unique value already exists. Please review duplicate IDs/codes and try again.";
+        } else if (normalizedMessage.contains("foreign key") || normalizedMessage.contains("is still referenced")) {
+            message = "Operation failed due to related records. Please remove dependencies first.";
+        } else if (rawMessage != null && !rawMessage.isBlank()) {
+            message = "Operation failed due to data integrity constraints: " + rawMessage;
+        } else {
+            message = "Operation failed due to data integrity constraints.";
         }
+        ApiErrorResponse response = buildErrorResponse(HttpStatus.CONFLICT, message, request, fieldErrors);
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(response);
+    }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ApiErrorResponse> handleGenericException(
@@ -170,15 +170,16 @@ public class GlobalExceptionHandler {
             HttpStatus status,
             String message,
             HttpServletRequest request,
-            Map<String, String> fieldErrors
+            Map<String, Object> details
     ) {
         return new ApiErrorResponse(
-                OffsetDateTime.now(),
+                LocalDateTime.now(),
                 status.value(),
                 status.getReasonPhrase(),
                 message,
                 request != null ? request.getRequestURI() : null,
-                fieldErrors
+                null,
+                details
         );
     }
 }

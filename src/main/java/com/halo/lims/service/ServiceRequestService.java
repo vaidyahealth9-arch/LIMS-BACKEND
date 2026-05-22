@@ -202,6 +202,8 @@ public class ServiceRequestService {
         if (request.getStatus() != null) serviceRequest.setStatus(request.getStatus());
         if (request.getPriority() != null) serviceRequest.setPriority(request.getPriority());
 
+        Map<Integer, List<String>> testSpecimenBarcodes = new HashMap<>();
+
         if (request.getTests() != null && !request.getTests().isEmpty()) {
             List<Integer> existingTestIds = serviceRequestItemRepository.findByServiceRequest(serviceRequest)
                     .stream()
@@ -231,6 +233,7 @@ public class ServiceRequestService {
                             .build();
                     newItems.add(item);
 
+                    List<String> barcodes = new ArrayList<>();
                     // Create specimens for this test
                     for (int i = 0; i < testSpecimenRequest.getNumberOfSpecimens(); i++) {
                         SpecimenCreateRequest specimenCreateRequest = new SpecimenCreateRequest();
@@ -238,8 +241,10 @@ public class ServiceRequestService {
                         specimenCreateRequest.setSpecimenTypeId(testSpecimenRequest.getSpecimenTypeId());
                         specimenCreateRequest.setCollectionDate(OffsetDateTime.now()); // Defaulting collection date
                         specimenCreateRequest.setStatus("unavailable"); // Defaulting status
-                        specimenService.createSpecimen(specimenCreateRequest);
+                        Specimen createdSpecimen = specimenService.createSpecimen(specimenCreateRequest);
+                        barcodes.add(createdSpecimen.getBarcode());
                     }
+                    testSpecimenBarcodes.put(test.getId(), barcodes);
                 }
                 serviceRequestItemRepository.saveAll(newItems);
 
@@ -258,7 +263,7 @@ public class ServiceRequestService {
         }
 
         ServiceRequest updatedServiceRequest = serviceRequestRepository.save(serviceRequest);
-        return mapToServiceRequestResponse(updatedServiceRequest, java.util.Collections.emptyMap());
+        return mapToServiceRequestResponse(updatedServiceRequest, testSpecimenBarcodes);
     }
 
     @Transactional(readOnly = true)
@@ -430,14 +435,24 @@ public class ServiceRequestService {
                                     analyteDetails.setUnit(analyte.getUnit().getName());
                                 }
 
+                                referenceRangeRepository.findByAnalyteId(analyte.getId()).stream()
+                                        .findFirst()
+                                        .ifPresent(referenceRange -> analyteDetails.setReferenceRange(referenceRange.getTextRange()));
+
                                 if (orgTestAnalyteOpt.isPresent()) {
                                     OrganizationTestAnalyte orgTestAnalyte = orgTestAnalyteOpt.get();
                                     analyteDetails.setResultType(orgTestAnalyte.getResultType());
                                     analyteDetails.setDecimalPlaces(orgTestAnalyte.getDecimalPlaces());
+                                    if (analyteDetails.getReferenceRange() == null || analyteDetails.getReferenceRange().isBlank()) {
+                                        analyteDetails.setReferenceRange(orgTestAnalyte.getBiologicalRefInterval());
+                                    }
                                     analyteDetails.setBiologicalRefInterval(orgTestAnalyte.getBiologicalRefInterval());
                                 } else {
                                     analyteDetails.setResultType(analyte.getResultType());
                                     analyteDetails.setDecimalPlaces(analyte.getDecimalPlaces());
+                                    if (analyteDetails.getReferenceRange() == null || analyteDetails.getReferenceRange().isBlank()) {
+                                        analyteDetails.setReferenceRange(analyte.getBiologicalRefInterval());
+                                    }
                                     analyteDetails.setBiologicalRefInterval(analyte.getBiologicalRefInterval());
                                 }
 

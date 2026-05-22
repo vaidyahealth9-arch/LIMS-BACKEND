@@ -16,8 +16,8 @@ import com.halo.lims.security.SecurityService;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.Collectors;
 
 @Service
@@ -87,6 +87,33 @@ public class OrganizationTestService {
         }
 
         return organizationTestRepository.findByOrganization_Id(organizationId).stream()
+                .map(this::mapToOrganizationTestResponse)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public List<OrganizationTestResponse> bulkUpdateOrganizationTestPrices(Integer organizationId, List<Integer> testIds, BigDecimal price) {
+        if (!securityService.isUserInOrganization(organizationId)) {
+            throw new org.springframework.security.access.AccessDeniedException("User not authorized to update tests for organization ID: " + organizationId);
+        }
+
+        if (testIds == null || testIds.isEmpty()) {
+            throw new IllegalArgumentException("At least one test must be selected for bulk price update.");
+        }
+
+        if (price == null || price.compareTo(BigDecimal.ZERO) < 0) {
+            throw new IllegalArgumentException("Price must be a non-negative value.");
+        }
+
+        List<OrganizationTest> organizationTests = organizationTestRepository.findByOrganization_IdAndTest_IdIn(organizationId, testIds);
+        if (organizationTests.size() != testIds.size()) {
+            throw new RuntimeException("One or more selected tests were not found in the organization catalog.");
+        }
+
+        organizationTests.forEach(organizationTest -> organizationTest.setPrice(price));
+        List<OrganizationTest> saved = organizationTestRepository.saveAll(organizationTests);
+
+        return saved.stream()
                 .map(this::mapToOrganizationTestResponse)
                 .collect(Collectors.toList());
     }

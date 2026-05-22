@@ -13,6 +13,7 @@ import com.halo.lims.dto.report.ReportMetadataDTO;
 import com.halo.lims.dto.report.TestGroup;
 import com.halo.lims.model.Observation;
 import com.halo.lims.model.Organization;
+import com.halo.lims.model.OrganizationAnalyteInterpretationRule;
 import com.halo.lims.model.OrganizationTestInterpretationRule;
 import com.halo.lims.model.Patient;
 import com.halo.lims.model.Practitioner;
@@ -21,9 +22,15 @@ import com.halo.lims.model.ServiceRequest;
 import com.halo.lims.model.Specimen;
 import com.halo.lims.model.SpecimenType;
 import com.halo.lims.model.Test;
+import com.halo.lims.model.TestAnalyte;
 import com.halo.lims.repository.ObservationRepository;
+import com.halo.lims.repository.OrganizationAnalyteInterpretationRuleRepository;
 import com.halo.lims.repository.OrganizationTestInterpretationRuleRepository;
 import com.halo.lims.repository.ServiceRequestRepository;
+import org.springframework.expression.Expression;
+import org.springframework.expression.ExpressionParser;
+import org.springframework.expression.spel.standard.SpelExpressionParser;
+import org.springframework.expression.spel.support.StandardEvaluationContext;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -46,10 +53,12 @@ import java.util.stream.Collectors;
 public class ReportDtoBuilder {
 
     private static final String REPORT_TYPE_SMART = "smart";
+    private static final ExpressionParser spelParser = new SpelExpressionParser();
 
     private final ServiceRequestRepository serviceRequestRepository;
     private final ObservationRepository observationRepository;
     private final OrganizationTestInterpretationRuleRepository organizationTestInterpretationRuleRepository;
+    private final OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository;
     private final ReportApprovalService reportApprovalService;
     private final ImageService imageService;
 
@@ -57,11 +66,13 @@ public class ReportDtoBuilder {
             ServiceRequestRepository serviceRequestRepository,
             ObservationRepository observationRepository,
             OrganizationTestInterpretationRuleRepository organizationTestInterpretationRuleRepository,
+            OrganizationAnalyteInterpretationRuleRepository organizationAnalyteInterpretationRuleRepository,
             ReportApprovalService reportApprovalService,
             ImageService imageService) {
         this.serviceRequestRepository = serviceRequestRepository;
         this.observationRepository = observationRepository;
         this.organizationTestInterpretationRuleRepository = organizationTestInterpretationRuleRepository;
+        this.organizationAnalyteInterpretationRuleRepository = organizationAnalyteInterpretationRuleRepository;
         this.reportApprovalService = reportApprovalService;
         this.imageService = imageService;
     }
@@ -73,7 +84,8 @@ public class ReportDtoBuilder {
         ServiceRequest serviceRequest = serviceRequestRepository.findById(serviceRequestId)
                 .orElseThrow(() -> new RuntimeException("Service Request not found: " + serviceRequestId));
 
-        List<Observation> observations = observationRepository.findByServiceRequestId(serviceRequestId)
+        // Eagerly load observations with references, unit, analyte, and specimen to avoid lazy loading issues
+        List<Observation> observations = observationRepository.findByServiceRequestIdWithReferences(serviceRequestId)
                 .stream().sorted(Comparator.comparing(Observation::getId)).toList();
 
         Patient patient = serviceRequest.getPatient();
@@ -88,18 +100,31 @@ public class ReportDtoBuilder {
         // Batch fetch interpretation rules to eliminate N+1 queries
         List<Test> tests = observations.stream()
                 .map(obs -> obs.getAnalyte() != null ? obs.getAnalyte().getParentTest() : null)
-                .filter(Objects::nonNull)
-                .distinct()
-                .toList();
-        Map<Integer, List<OrganizationTestInterpretationRule>> interpretationRulesMap = new HashMap<>();
-        if (organization != null && !tests.isEmpty()) {
-            List<OrganizationTestInterpretationRule> allRules = organizationTestInterpretationRuleRepository
-                    .findByOrganizationTestOrganizationAndOrganizationTestTestIn(organization, tests);
-            interpretationRulesMap = allRules.stream()
-                    .collect(Collectors.groupingBy(rule -> rule.getOrganizationTest().getTest().getId()));
+                .filter(Objects::nonNull).distinct().toList();
+        List<TestAnalyte> analytes = observations.stream()
+                .map(Observation::getAnalyte).filter(Objects::nonNull).distinct().toList();
+
+        Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap = new HashMap<>();
+        Map<Integer, List<OrganizationAnalyteInterpretationRule>> analyteRulesMap = new HashMap<>();
+
+        if (organization != null) {
+            if (!tests.isEmpty()) {
+                List<OrganizationTestInterpretationRule> tRules = organizationTestInterpretationRuleRepository
+                        .findByOrganizationTestOrganizationAndOrganizationTestTestIn(organization, tests);
+                testRulesMap = tRules.stream()
+                        .filter(rule -> rule.getOrganizationTest() != null && rule.getOrganizationTest().getTest() != null)
+                        .collect(Collectors.groupingBy(rule -> rule.getOrganizationTest().getTest().getId()));
+            }
+            if (!analytes.isEmpty()) {
+                List<OrganizationAnalyteInterpretationRule> aRules = organizationAnalyteInterpretationRuleRepository
+                        .findByOrganizationAndAnalyteIn(organization, analytes);
+                analyteRulesMap = aRules.stream()
+                        .filter(rule -> rule.getAnalyte() != null)
+                        .collect(Collectors.groupingBy(rule -> rule.getAnalyte().getId()));
+            }
         }
 
-        List<TestGroup> testGroups = buildTestGroups(serviceRequest, observations, historyMap, interpretationRulesMap);
+        List<TestGroup> testGroups = buildTestGroups(serviceRequest, observations, historyMap, testRulesMap, analyteRulesMap);
         DoctorSignature signature = buildDoctorSignature(approvalStatus, observations);
 
         ReportApprovalService.ReportMetadata meta = reportApprovalService.buildReportMetadata(
@@ -119,7 +144,7 @@ public class ReportDtoBuilder {
         if (REPORT_TYPE_SMART.equals(normalizedReportType)) {
             analytics = buildAnalyticsSummary(testGroups, observations);
             trends = List.of();
-            insights = buildInsights(testGroups, analytics);
+            insights = buildSmartInsights(testGroups, analytics);
         }
 
         String reportTitle = REPORT_TYPE_SMART.equals(normalizedReportType)
@@ -179,61 +204,74 @@ public class ReportDtoBuilder {
     private List<TestGroup> buildTestGroups(ServiceRequest serviceRequest,
                                             List<Observation> observations,
                                             Map<Integer, List<BigDecimal>> historyMap,
-                                            Map<Integer, List<OrganizationTestInterpretationRule>> interpretationRulesMap) {
-        Map<String, List<Observation>> byTest = observations.stream()
-                .collect(Collectors.groupingBy(obs -> {
-                    if (obs.getAnalyte() == null || obs.getAnalyte().getParentTest() == null)
-                        return "Ungrouped Results";
-                    String name = obs.getAnalyte().getParentTest().getTestName();
-                    return (name == null || name.isBlank()) ? "Ungrouped Results" : name;
-                }, LinkedHashMap::new, Collectors.toList()));
+                                            Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap,
+                                            Map<Integer, List<OrganizationAnalyteInterpretationRule>> analyteRulesMap) {
+        Map<Test, List<Observation>> grouped = observations.stream()
+                .filter(obs -> obs.getAnalyte() != null && obs.getAnalyte().getParentTest() != null)
+                .collect(Collectors.groupingBy(obs -> obs.getAnalyte().getParentTest(), LinkedHashMap::new, Collectors.toList()));
 
         List<TestGroup> groups = new ArrayList<>();
-        for (Map.Entry<String, List<Observation>> entry : byTest.entrySet()) {
-            List<Observation> testObs = entry.getValue();
-            Test test = testObs.getFirst().getAnalyte() != null ? testObs.getFirst().getAnalyte().getParentTest() : null;
+        for (Map.Entry<Test, List<Observation>> entry : grouped.entrySet()) {
+            Test test = entry.getKey();
+            List<Observation> obsList = entry.getValue();
 
-            List<AnalyteResult> analytes = testObs.stream()
-                    .map(obs -> {
-                        int analyteId = obs.getAnalyte() != null ? obs.getAnalyte().getId() : -1;
-                        List<BigDecimal> history = historyMap.getOrDefault(analyteId,
-                                obs.getValueNumeric() != null ? List.of(obs.getValueNumeric()) : List.of());
-                        return buildAnalyteResult(obs, history);
-                    })
+            List<AnalyteResult> analytes = obsList.stream()
+                    .map(obs -> buildAnalyteResult(obs, historyMap.getOrDefault(obs.getAnalyte().getId(), List.of()), analyteRulesMap))
                     .toList();
 
             boolean hasAbnormal = analytes.stream().anyMatch(AnalyteResult::isAbnormal);
-            String interpretation = buildTestInterpretation(serviceRequest, test, testObs, interpretationRulesMap);
-            groups.add(new TestGroup(entry.getKey(), analytes.size(), hasAbnormal, interpretation, analytes));
+            String interpretation = buildTestInterpretation(serviceRequest, test, obsList, testRulesMap);
+
+            groups.add(new TestGroup(test.getTestName(), analytes.size(), hasAbnormal, interpretation, analytes));
         }
         return groups;
     }
 
-    private AnalyteResult buildAnalyteResult(Observation obs, List<BigDecimal> history) {
-        String status = buildSmartStatusLabel(obs);
-        String statusClass = buildSmartStatusClass(obs);
-        boolean isAbnormal = "status-abnormal".equals(statusClass);
-        int markerPercent = computeMarkerPercent(obs);
-        String value = observationValue(obs);
-        String unit = obs.getUnit() != null ? safe(obs.getUnit().getName()) : "";
-        String analyteName = obs.getAnalyte() != null && obs.getAnalyte().getAnalyteName() != null
-                ? obs.getAnalyte().getAnalyteName() : "Unmapped analyte";
+    private AnalyteResult buildAnalyteResult(Observation obs, List<BigDecimal> history, Map<Integer, List<OrganizationAnalyteInterpretationRule>> rulesMap) {
+        String analyteName = obs.getAnalyte() != null ? obs.getAnalyte().getAnalyteName() : "Unknown";
+        String value = obs.getValueString() != null ? obs.getValueString() : (obs.getValueNumeric() != null ? obs.getValueNumeric().toString() : "N/A");
+        String unit = obs.getUnit() != null ? obs.getUnit().getName() : "";
+        String status = obs.getInterpretationCode() != null ? obs.getInterpretationCode() : "Normal";
+        boolean isAbnormal = !"N".equalsIgnoreCase(status) && !"Normal".equalsIgnoreCase(status);
+        String statusClass = isAbnormal ? "status-abnormal" : "status-normal";
 
-        String refLowDisplay = "";
-        String refHighDisplay = "";
-        if (obs.getReferenceRange() != null) {
-            if (obs.getReferenceRange().getLowValue() != null)
-                refLowDisplay = obs.getReferenceRange().getLowValue().stripTrailingZeros().toPlainString();
-            if (obs.getReferenceRange().getHighValue() != null)
-                refHighDisplay = obs.getReferenceRange().getHighValue().stripTrailingZeros().toPlainString();
-        }
+        int markerPercent = computeMarkerPercent(obs);
+        String refLowDisplay = obs.getReferenceRange() != null && obs.getReferenceRange().getLowValue() != null ? obs.getReferenceRange().getLowValue().toString() : "";
+        String refHighDisplay = obs.getReferenceRange() != null && obs.getReferenceRange().getHighValue() != null ? obs.getReferenceRange().getHighValue().toString() : "";
 
         BigDecimal refLow = obs.getReferenceRange() != null ? obs.getReferenceRange().getLowValue() : null;
         BigDecimal refHigh = obs.getReferenceRange() != null ? obs.getReferenceRange().getHighValue() : null;
-        String sparklineSvg = imageService.buildSparklineSvg(history, 250, 80, refLow, refHigh);
+        String sparklineSvg = imageService.buildSparklineSvg(history, 350, 60, refLow, refHigh);
+
+        // Evaluate Analyte-level rules
+        String interpretation = "";
+        if (obs.getAnalyte() != null) {
+            List<OrganizationAnalyteInterpretationRule> rules = rulesMap != null ? rulesMap.getOrDefault(obs.getAnalyte().getId(), List.of()) : List.of();
+            interpretation = evaluateAnalyteRules(rules, obs);
+        }
+
         return new AnalyteResult(analyteName, value, unit, referenceRangeText(obs),
                 refLowDisplay, refHighDisplay, status, statusClass, isAbnormal,
-                markerPercent, history.size(), sparklineSvg);
+                markerPercent, history != null ? history.size() : 0, sparklineSvg, interpretation);
+    }
+
+    private String evaluateAnalyteRules(List<OrganizationAnalyteInterpretationRule> rules, Observation obs) {
+        if (rules == null || rules.isEmpty()) return "";
+        StandardEvaluationContext context = new StandardEvaluationContext();
+        context.setVariable("val", obs.getValueNumeric());
+        context.setVariable("text", obs.getValueString());
+        context.setVariable("status", obs.getInterpretationCode());
+        context.setVariable("isAbnormal", !"N".equalsIgnoreCase(obs.getInterpretationCode()));
+
+        return rules.stream()
+                .filter(rule -> {
+                    try {
+                        Expression exp = spelParser.parseExpression(rule.getConditionExpression());
+                        return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
+                    } catch (Exception e) { return false; }
+                })
+                .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
+                .filter(Objects::nonNull).collect(Collectors.joining("; "));
     }
 
     private AnalyticsSummary buildAnalyticsSummary(List<TestGroup> testGroups, List<Observation> observations) {
@@ -360,23 +398,36 @@ public class ReportDtoBuilder {
 
     private String buildTestInterpretation(ServiceRequest serviceRequest, Test test,
                                            List<Observation> observations,
-                                           Map<Integer, List<OrganizationTestInterpretationRule>> interpretationRulesMap) {
-        Organization organization = serviceRequest.getPatient() != null
-                ? serviceRequest.getPatient().getOrganization() : null;
-        if (organization != null && test != null) {
-            List<OrganizationTestInterpretationRule> rules = interpretationRulesMap.getOrDefault(test.getId(), List.of());
+                                           Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap) {
+        if (test == null) return "";
+        List<OrganizationTestInterpretationRule> rules = testRulesMap.getOrDefault(test.getId(), List.of());
+        
+        if (!rules.isEmpty()) {
+            StandardEvaluationContext context = new StandardEvaluationContext();
+            // Map each analyte to its value for complex multi-analyte rules
+            for (Observation obs : observations) {
+                if (obs.getAnalyte() != null && obs.getAnalyte().getAnalyteName() != null) {
+                    String varName = obs.getAnalyte().getAnalyteName().replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
+                    if (!varName.isBlank()) {
+                        context.setVariable(varName, obs.getValueNumeric());
+                        context.setVariable(varName + "_status", obs.getInterpretationCode());
+                    }
+                }
+            }
+
             String fromRules = rules.stream()
-                    .map(rule -> {
-                        if (rule.getAutoComment() != null && !rule.getAutoComment().isBlank())
-                            return rule.getAutoComment().trim();
-                        if (rule.getClassification() != null && !rule.getClassification().isBlank())
-                            return rule.getClassification().trim();
-                        return null;
+                    .filter(rule -> {
+                        try {
+                            Expression exp = spelParser.parseExpression(rule.getConditionExpression());
+                            return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
+                        } catch (Exception e) { return false; }
                     })
+                    .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
                     .filter(Objects::nonNull).distinct()
                     .collect(Collectors.joining("; "));
             if (!fromRules.isBlank()) return fromRules;
         }
+
         LinkedHashSet<String> codes = observations.stream()
                 .map(Observation::getInterpretationCode)
                 .filter(Objects::nonNull).map(String::trim).filter(c -> !c.isBlank())
@@ -384,6 +435,29 @@ public class ReportDtoBuilder {
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         if (!codes.isEmpty()) return String.join("; ", codes);
         return "No specific interpretation available. Correlate clinically.";
+    }
+
+    private List<String> buildSmartInsights(List<TestGroup> testGroups, AnalyticsSummary analytics) {
+        List<String> insights = new ArrayList<>();
+        if (analytics != null && analytics.getAbnormalCount() > 0) {
+            insights.add("CRITICAL: " + analytics.getAbnormalCount() + " abnormal markers detected across " + testGroups.size() + " test panels.");
+            insights.add("CORRELATION: Clinical correlation with physical symptoms and medical history is advised.");
+            
+            // Add specific categorical recommendations (Hybrid Level 3)
+            boolean hasHighCholesterol = testGroups.stream().anyMatch(g -> g.getTestName() != null && g.getTestName().toLowerCase().contains("lipid") && g.isHasAbnormalResults());
+            if (hasHighCholesterol) {
+                insights.add("RECOMMENDATION: Low-fat diet and regular cardiovascular exercise are recommended for lipid management.");
+            }
+            
+            boolean hasLiverIssue = testGroups.stream().anyMatch(g -> g.getTestName() != null && g.getTestName().toLowerCase().contains("liver") && g.isHasAbnormalResults());
+            if (hasLiverIssue) {
+                insights.add("RECOMMENDATION: Avoid hepatotoxic substances (e.g., alcohol, certain medications) and monitor liver enzyme trends.");
+            }
+        } else {
+            insights.add("All tested parameters are within physiological reference ranges.");
+            insights.add("Maintaining a balanced diet and regular health check-ups is recommended for continued wellness.");
+        }
+        return insights;
     }
 
     private String mapInterpretationCodeToText(String code) {

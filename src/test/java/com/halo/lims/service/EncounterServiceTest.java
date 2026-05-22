@@ -1,6 +1,7 @@
 package com.halo.lims.service;
 
 import com.halo.lims.constant.EncounterStatus;
+import com.halo.lims.dto.encounter.EncounterDetailResponse;
 import com.halo.lims.dto.encounter.EncounterResponse;
 import com.halo.lims.dto.report.ReportApprovalStatusResponse;
 import com.halo.lims.model.Bill;
@@ -137,6 +138,51 @@ class EncounterServiceTest {
         assertEquals("COMPLETED", response.getStatus());
         verify(reportService).buildUnifiedPdfReport(40, true, "regular");
         verify(encounterRepository).save(eq(encounter));
+    }
+
+    @Test
+    void getEncounterDetail_shouldHandleServiceProviderOwnedEncounterWithoutPatientOrganization() {
+        Organization serviceProvider = Organization.builder()
+                .id(55)
+                .organizationName("Service Provider")
+                .localIdentifierSystem("http://local/org")
+                .localIdentifierValue("ORG055")
+                .orgType("laboratory")
+                .build();
+
+        Patient patient = Patient.builder()
+                .id(20)
+                .firstName("Pooja")
+                .lastName("K")
+                .gender("female")
+                .dateOfBirth(LocalDate.of(1990, 1, 1))
+                .localMrnSystem("http://local/mrn")
+                .localMrnValue("MRN001")
+                .build();
+
+        Encounter encounter = Encounter.builder()
+                .id(31)
+                .patient(patient)
+                .serviceProvider(serviceProvider)
+                .status(EncounterStatus.APPROVED.getCode())
+                .startTime(OffsetDateTime.now().minusHours(2))
+                .localEncounterSystem("http://local/encounter")
+                .localEncounterValue("ENC-031")
+                .build();
+
+        when(encounterRepository.findById(31)).thenReturn(Optional.of(encounter));
+        when(securityService.isUserInOrganization(55)).thenReturn(true);
+        when(serviceRequestRepository.findByEncounter(encounter)).thenReturn(List.of());
+        when(serviceRequestItemRepository.findByServiceRequestIn(List.of())).thenReturn(List.of());
+
+        EncounterDetailResponse response = encounterService.getEncounterDetailsById(31);
+
+        assertEquals(31, response.getId());
+        assertEquals("ENC-031", response.getLocalEncounterValue());
+        assertEquals(List.of(), response.getTests());
+        assertEquals(List.of(), response.getServiceRequestIds());
+        assertEquals(List.of(), response.getSpecimenBarcodes());
+        verify(specimenRepository, org.mockito.Mockito.never()).findByServiceRequestIn(any());
     }
 
     private Encounter buildEncounter(String status) {

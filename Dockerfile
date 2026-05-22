@@ -34,4 +34,5 @@ USER appuser
 EXPOSE 8080
 
 # Run the application
-ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-Dspring.profiles.active=prod", "-jar", "app.jar"]
+# Respect the SPRING_PROFILES_ACTIVE environment variable from docker-compose; do not force 'prod' here.
+ENTRYPOINT ["java", "-Djava.security.egd=file:/dev/./urandom", "-jar", "app.jar"]

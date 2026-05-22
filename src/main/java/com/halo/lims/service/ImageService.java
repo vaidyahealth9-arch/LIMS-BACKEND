@@ -4,6 +4,7 @@ import com.halo.lims.helper.ImageValidationUtil;
 import com.halo.lims.model.MediaAsset;
 import com.halo.lims.repository.MediaAssetRepository;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.ObjectProvider;
 
 import java.math.BigDecimal;
 import java.util.List;
@@ -13,7 +14,7 @@ public class ImageService {
 
     private final ReportImageService reportImageService;
     private final ImageValidationUtil imageValidationUtil;
-    private final GcsService gcsService;
+    private final ObjectProvider<GcsService> gcsServiceProvider;
     private final MediaAssetRepository mediaAssetRepository;
 
     private static String limit(String value, int maxLength) {
@@ -25,11 +26,11 @@ public class ImageService {
 
     public ImageService(ReportImageService reportImageService,
                         ImageValidationUtil imageValidationUtil,
-                        GcsService gcsService,
+                        ObjectProvider<GcsService> gcsServiceProvider,
                         MediaAssetRepository mediaAssetRepository) {
         this.reportImageService = reportImageService;
         this.imageValidationUtil = imageValidationUtil;
-        this.gcsService = gcsService;
+        this.gcsServiceProvider = gcsServiceProvider;
         this.mediaAssetRepository = mediaAssetRepository;
     }
 
@@ -91,6 +92,10 @@ public class ImageService {
         String storagePath = folder + fileName;
         String url;
         try {
+            GcsService gcsService = gcsServiceProvider.getIfAvailable();
+            if (gcsService == null) {
+                throw new IllegalStateException("GcsService not configured");
+            }
             url = gcsService.uploadBase64(trimmedSource, folder, fileName);
         } catch (Exception e) {
             // Fallback for local development or if configuration is missing

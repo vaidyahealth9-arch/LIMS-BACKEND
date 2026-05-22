@@ -37,21 +37,21 @@ public class ReferenceRangeController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')") // Various roles can view
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')") // Various roles can view
     public ResponseEntity<ReferenceRangeResponse> getReferenceRangeById(@PathVariable Integer id) {
         ReferenceRangeResponse response = referenceRangeService.getReferenceRangeById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<List<ReferenceRangeResponse>> getAllReferenceRanges() {
         List<ReferenceRangeResponse> responses = referenceRangeService.getAllReferenceRanges();
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
     @GetMapping("/by-analyte/{analyteId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<List<ReferenceRangeResponse>> getReferenceRangesByAnalyte(@PathVariable Integer analyteId) {
         List<ReferenceRangeResponse> responses = referenceRangeService.getReferenceRangesByAnalyte(analyteId);
         return new ResponseEntity<>(responses, HttpStatus.OK);

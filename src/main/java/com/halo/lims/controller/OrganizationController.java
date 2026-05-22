@@ -37,7 +37,7 @@ public class OrganizationController {
 
     /**
      * Retrieves an organization by its ID.
-     * Accessible by ADMIN, MANAGER.
+    * Accessible by ADMIN.
      * @param id The ID of the organization.
      * @return The OrganizationResponse.
      */
@@ -50,13 +50,13 @@ public class OrganizationController {
 
     /**
      * Updates report branding assets (header/footer images) for an organization.
-     * Accessible by ADMIN or by MANAGER within the same organization.
+    * Accessible by ADMIN within the same organization.
      * @param id The organization ID.
      * @param request The branding payload.
      * @return Updated OrganizationResponse.
      */
     @PatchMapping("/{id}/report-branding")
-    @PreAuthorize("hasRole('ADMIN') or (hasRole('MANAGER') and @securityService.isUserInOrganization(#id))")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<OrganizationResponse> updateOrganizationReportBranding(
             @PathVariable Integer id,
             @Valid @RequestBody OrganizationReportBrandingUpdateRequest request) {

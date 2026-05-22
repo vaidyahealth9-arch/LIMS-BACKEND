@@ -56,7 +56,7 @@ public class UnitController {
      * @return The UnitResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<UnitResponse> getUnitById(@PathVariable Integer id) {
         UnitResponse response = unitService.getUnitById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
@@ -68,7 +68,7 @@ public class UnitController {
      * @return A list of UnitResponses.
      */
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'RECEPTIONIST')")
     public ResponseEntity<List<UnitResponse>> getAllUnits() {
         List<UnitResponse> responses = unitService.getAllUnits();
         return new ResponseEntity<>(responses, HttpStatus.OK);

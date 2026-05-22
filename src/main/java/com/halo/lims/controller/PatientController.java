@@ -26,7 +26,7 @@ public class PatientController {
     }
 
     @PostMapping("/register")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#request.organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#request.organizationId)")
     public ResponseEntity<PatientRegistrationResponse> registerPatient(@Valid @RequestBody PatientRegistrationRequest request) {
 
         PatientRegistrationResponse response = patientService.registerPatient(request);
@@ -34,7 +34,7 @@ public class PatientController {
     }
 
     @PostMapping("/{patientId}/abha/verify-otp")
-    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'MANAGER', 'ADMIN', 'TECHNICIAN')") // Same roles for ABHA linking
+    @PreAuthorize("hasAnyRole('RECEPTIONIST', 'ADMIN', 'TECHNICIAN')") // Same roles for ABHA linking
     public ResponseEntity<PatientRegistrationResponse> verifyAbhaOtpAndLink(
             @PathVariable Integer patientId,
             @Valid @RequestBody AbhaOtpVerificationRequest request) {
@@ -43,15 +43,27 @@ public class PatientController {
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
+    @GetMapping("/test-phr")
+    public String testPhr(@RequestParam String mobile) {
+        try {
+            patientService.findPatientByMobile(mobile, "self");
+            return "SUCCESS";
+        } catch (Exception e) {
+            java.io.StringWriter sw = new java.io.StringWriter();
+            e.printStackTrace(new java.io.PrintWriter(sw));
+            return sw.toString();
+        }
+    }
+
     @GetMapping("/by-organization/{organizationId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<List<PatientRegistrationResponse>> getPatientsByOrganization(@PathVariable Integer organizationId) {
         List<PatientRegistrationResponse> patients = patientService.getPatientsByOrganization(organizationId);
         return new ResponseEntity<>(patients, HttpStatus.OK);
     }
 
     @GetMapping("/phr-lookup")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN')")
     public ResponseEntity<PatientRegistrationResponse> lookupPatientFromPhr(
             @RequestParam String mobile,
             @RequestParam(required = false) String relationship) {
@@ -63,7 +75,7 @@ public class PatientController {
     }
 
     @GetMapping("/by-organization/{organizationId}/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<PagedResponse<PatientRegistrationResponse>> searchPatientsInOrganization(
             @PathVariable Integer organizationId,
             @RequestParam String query,
@@ -78,3 +90,5 @@ public class PatientController {
 
     // TODO: Add endpoints for ABDM callbacks (Milestone 3 discovery)
 }
+
+// Trigger DevTools restart

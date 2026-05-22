@@ -10,6 +10,8 @@ import com.halo.lims.security.SecurityService;
 import com.halo.lims.service.EncounterService;
 import jakarta.validation.Valid;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +25,8 @@ import java.util.List;
 @RequestMapping("/api/encounters")
 public class EncounterController {
 
+    private static final Logger log = LoggerFactory.getLogger(EncounterController.class);
+    
     private final EncounterService encounterService;
     private final SecurityService securityService; // Needed for @PreAuthorize checks
 
@@ -32,21 +36,21 @@ public class EncounterController {
     }
 
     @PostMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessPatient(#request.patientId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST') and @securityService.canAccessPatient(#request.patientId)")
     public ResponseEntity<EncounterResponse> createEncounter(@Valid @RequestBody EncounterCreateRequest request) {
         EncounterResponse response = encounterService.createEncounter(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessEncounter(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST') and @securityService.canAccessEncounter(#id)")
     public ResponseEntity<EncounterResponse> updateEncounter(@PathVariable Integer id, @Valid @RequestBody EncounterUpdateRequest request) {
         EncounterResponse response = encounterService.updateEncounter(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @PutMapping("/{id}/workflow-status")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'MANAGER', 'DOCTOR', 'PATHOLOGIST') and @securityService.canAccessEncounter(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'RECEPTIONIST', 'DOCTOR', 'PATHOLOGIST') and @securityService.canAccessEncounter(#id)")
     public ResponseEntity<EncounterResponse> updateWorkflowStatus(
             @PathVariable Integer id,
             @RequestParam("status") String status) {
@@ -57,28 +61,35 @@ public class EncounterController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessEncounter(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST') and @securityService.canAccessEncounter(#id)")
     public ResponseEntity<EncounterResponse> getEncounterById(@PathVariable Integer id) {
         EncounterResponse response = encounterService.getEncounterById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping("/{id}/details")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessEncounter(#id)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST') and @securityService.canAccessEncounter(#id)")
     public ResponseEntity<EncounterDetailResponse> getEncounterDetailsById(@PathVariable Integer id) {
-        EncounterDetailResponse response = encounterService.getEncounterDetailsById(id);
-        return new ResponseEntity<>(response, HttpStatus.OK);
+        try {
+            log.debug("Fetching encounter details for ID: {}", id);
+            EncounterDetailResponse response = encounterService.getEncounterDetailsById(id);
+            log.debug("Successfully fetched encounter details for ID: {}", id);
+            return new ResponseEntity<>(response, HttpStatus.OK);
+        } catch (Exception e) {
+            log.error("Error fetching encounter details for ID: {}", id, e);
+            throw e; // Re-throw to let global exception handler handle it
+        }
     }
 
     @GetMapping("/by-patient/{patientId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST', 'MANAGER') and @securityService.canAccessPatient(#patientId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST') and @securityService.canAccessPatient(#patientId)")
     public ResponseEntity<List<EncounterResponse>> getEncountersByPatient(@PathVariable Integer patientId) {
         List<EncounterResponse> responses = encounterService.getEncountersByPatient(patientId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
     @GetMapping("/search")
-    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST', 'MANAGER') and @securityService.isUserInOrganization(#organizationId)")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR', 'PATHOLOGIST', 'RECEPTIONIST') and @securityService.isUserInOrganization(#organizationId)")
     public ResponseEntity<PagedResponse<EncounterListResponse>> searchEncounters(
             @RequestParam("organizationId") Integer organizationId,
             @RequestParam(value = "startDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate startDate,

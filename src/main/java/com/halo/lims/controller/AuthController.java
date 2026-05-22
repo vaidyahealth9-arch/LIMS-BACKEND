@@ -63,11 +63,8 @@ public class AuthController {
                     user.getOrganization().getId(),
                     user.getOrganization().getOrganizationName()
             ));
-        } catch (org.springframework.security.authentication.BadCredentialsException e) {
-            logger.warn("Authentication failed for user {}: {}", authenticationRequest.getUsername(), e.getMessage());
-            return ResponseEntity.status(401).body("Invalid username or password");
         } catch (Exception e) {
-            logger.error("Unexpected authentication error for user {}: {}", authenticationRequest.getUsername(), e.toString());
+            logger.error("Authentication failed for user {}: {}", authenticationRequest.getUsername(), e.toString());
             throw e;
         }
     }

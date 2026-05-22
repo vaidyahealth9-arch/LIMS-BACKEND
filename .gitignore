@@ -19,6 +19,9 @@
 *.tar.gz
 *.rar
 
+# Docs and generated artifacts
+docs/
+
 # virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
 hs_err_pid*
 replay_pid*
@@ -55,3 +58,20 @@ build/
 
 ### VS Code ###
 .vscode/
+
+### Debug & compile output artifacts (never commit these) ###
+build_debug*.log
+compile_debug*.txt
+compile_debug_utf8*.txt
+compile_out*.txt
+compile_output*.txt
+compile_output_*.txt
+
+### Local report storage (generated at runtime) ###
+data/lims-reports/
+
+### Local log output ###
+logs/
+
+### Local configuration (sensitive) ###
+src/main/resources/application-local.properties

@@ -37,21 +37,21 @@ public class TestInterpretationRuleController {
     }
 
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')") // Various roles can view
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')") // Various roles can view
     public ResponseEntity<TestInterpretationRuleResponse> getTestInterpretationRuleById(@PathVariable Integer id) {
         TestInterpretationRuleResponse response = testInterpretationRuleService.getTestInterpretationRuleById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 
     @GetMapping
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<List<TestInterpretationRuleResponse>> getAllTestInterpretationRules() {
         List<TestInterpretationRuleResponse> responses = testInterpretationRuleService.getAllTestInterpretationRules();
         return new ResponseEntity<>(responses, HttpStatus.OK);
     }
 
     @GetMapping("/by-analyte/{analyteId}")
-    @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'TECHNICIAN', 'DOCTOR')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<List<TestInterpretationRuleResponse>> getTestInterpretationRulesByAnalyte(@PathVariable Integer analyteId) {
         List<TestInterpretationRuleResponse> responses = testInterpretationRuleService.getTestInterpretationRulesByAnalyte(analyteId);
         return new ResponseEntity<>(responses, HttpStatus.OK);

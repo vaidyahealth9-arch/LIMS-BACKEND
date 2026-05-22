@@ -15,6 +15,17 @@ import java.util.Optional;
 public interface ObservationRepository extends JpaRepository<Observation, Integer> {
     List<Observation> findByServiceRequestId(Integer serviceRequestId);
 
+    @Query("""
+            SELECT DISTINCT o FROM Observation o
+            LEFT JOIN FETCH o.referenceRange
+            LEFT JOIN FETCH o.analyte
+            LEFT JOIN FETCH o.unit
+            LEFT JOIN FETCH o.specimen
+            WHERE o.serviceRequest.id = :serviceRequestId
+            ORDER BY o.id
+            """)
+    List<Observation> findByServiceRequestIdWithReferences(@Param("serviceRequestId") Integer serviceRequestId);
+
     Optional<Observation> findTopByServiceRequestIdOrderByEffectiveDateTimeDesc(Integer serviceRequestId);
 
     List<Observation> findByPatientInOrderByEffectiveDateTimeDesc(List<com.halo.lims.model.Patient> patients);
@@ -54,7 +65,7 @@ public interface ObservationRepository extends JpaRepository<Observation, Intege
               AND o.patient.organization.id = :organizationId
               AND o.serviceRequest.id <> :excludeServiceRequestId
               AND o.valueNumeric IS NOT NULL
-              AND o.status = 'final'
+              AND (o.status IN ('final', 'completed', 'amended') OR o.status IS NULL)
             ORDER BY o.analyte.id, o.effectiveDateTime DESC
             """)
     List<Observation> findHistoricalByAnalyteIdsAndPatientAndOrganization(

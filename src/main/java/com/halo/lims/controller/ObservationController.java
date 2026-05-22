@@ -1,19 +1,24 @@
 package com.halo.lims.controller;
 
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.halo.lims.dto.observation.ObservationCreateRequest;
 import com.halo.lims.dto.observation.ObservationResponse;
 import com.halo.lims.dto.observation.ObservationUpdateRequest;
 import com.halo.lims.security.CustomUserDetailsService;
+import com.halo.lims.security.SecurityService;
 import com.halo.lims.service.ObservationService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
 import java.util.List;
 
 @RestController
@@ -22,10 +27,12 @@ public class ObservationController {
 
     private final ObservationService observationService;
     private final CustomUserDetailsService customUserDetailsService;
+    private final SecurityService securityService;
 
-    public ObservationController(ObservationService observationService, CustomUserDetailsService customUserDetailsService) {
+    public ObservationController(ObservationService observationService, CustomUserDetailsService customUserDetailsService, SecurityService securityService) {
         this.observationService = observationService;
         this.customUserDetailsService = customUserDetailsService;
+        this.securityService = securityService;
     }
 
     /**
@@ -36,7 +43,7 @@ public class ObservationController {
      * @return Created ObservationResponse.
      */
     @PostMapping
-    @PreAuthorize("hasRole('TECHNICIAN') and @securityService.canAccessServiceRequest(#request.serviceRequestId)")
+    @PreAuthorize("hasAnyRole('TECHNICIAN', 'ADMIN') and @securityService.canAccessServiceRequest(#request.serviceRequestId)")
     public ResponseEntity<ObservationResponse> createObservation(
             @Valid @RequestBody ObservationCreateRequest request,
             @AuthenticationPrincipal UserDetails userDetails) { // Assuming UserDetails contains practitionerId
@@ -58,7 +65,7 @@ public class ObservationController {
      * @return Updated ObservationResponse.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('TECHNICIAN') and @securityService.canAccessObservation(#id)")
+    @PreAuthorize("hasAnyRole('TECHNICIAN', 'ADMIN') and @securityService.canAccessObservation(#id)")
     public ResponseEntity<ObservationResponse> updateObservation(
             @PathVariable Integer id,
             @Valid @RequestBody ObservationUpdateRequest request,
@@ -76,7 +83,7 @@ public class ObservationController {
      * @return List of updated ObservationResponses.
      */
     @PostMapping("/send-for-verification")
-    @PreAuthorize("hasRole('TECHNICIAN') and @securityService.canAccessObservationsInBatch(#observationIds)")
+    @PreAuthorize("hasAnyRole('TECHNICIAN', 'ADMIN') and @securityService.canAccessObservationsInBatch(#observationIds)")
     public ResponseEntity<List<ObservationResponse>> sendObservationsForVerification(
             @RequestBody List<Integer> observationIds,
             @AuthenticationPrincipal UserDetails userDetails) {
@@ -93,13 +100,73 @@ public class ObservationController {
      * @return List of finalized ObservationResponses.
      */
     @PostMapping("/approve")
-    @PreAuthorize("hasAnyRole('PATHOLOGIST', 'DOCTOR', 'ADMIN') and @securityService.canAccessObservationsInBatch(#observationIds)")
+    @PreAuthorize("hasAnyRole('PATHOLOGIST', 'DOCTOR', 'ADMIN')")
     public ResponseEntity<List<ObservationResponse>> approveObservations(
-            @RequestBody List<Integer> observationIds,
+            @RequestBody JsonNode requestBody,
             @AuthenticationPrincipal UserDetails userDetails) {
-        Integer pathologistId = customUserDetailsService.getPractitionerIdFromUserDetails(userDetails); // Implement this helper
-        List<ObservationResponse> responses = observationService.approveObservations(observationIds, pathologistId);
+        List<Integer> observationIds = extractObservationIds(requestBody);
+        if (!securityService.canAccessObservationsInBatch(observationIds)) {
+            throw new AccessDeniedException("User not authorized to approve these observations");
+        }
+
+        Integer approvingPractitionerId = extractApprovingPractitionerId(requestBody);
+        boolean isAdmin = userDetails.getAuthorities().stream()
+                .map(GrantedAuthority::getAuthority)
+                .anyMatch(authority -> "ROLE_ADMIN".equalsIgnoreCase(authority) || "ADMIN".equalsIgnoreCase(authority));
+
+        if (approvingPractitionerId == null) {
+            if (!isAdmin) {
+                approvingPractitionerId = customUserDetailsService.getPractitionerIdFromUserDetails(userDetails);
+            } else {
+                approvingPractitionerId = customUserDetailsService.getPractitionerIdFromUserDetails(userDetails);
+            }
+        }
+
+        List<ObservationResponse> responses = observationService.approveObservations(observationIds, approvingPractitionerId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
+    }
+
+    private List<Integer> extractObservationIds(JsonNode requestBody) {
+        List<Integer> observationIds = new ArrayList<>();
+
+        JsonNode idsNode = requestBody.isArray() ? requestBody : requestBody.get("observationIds");
+        if (idsNode != null && idsNode.isArray()) {
+            idsNode.forEach(node -> {
+                if (node.isNumber()) {
+                    observationIds.add(node.asInt());
+                } else if (node.isTextual()) {
+                    try {
+                        observationIds.add(Integer.parseInt(node.asText()));
+                    } catch (NumberFormatException ignored) {
+                        // ignore malformed entries
+                    }
+                }
+            });
+        }
+
+        if (observationIds.isEmpty()) {
+            throw new IllegalArgumentException("Observation IDs are required for approval.");
+        }
+
+        return observationIds;
+    }
+
+    private Integer extractApprovingPractitionerId(JsonNode requestBody) {
+        JsonNode practitionerIdNode = requestBody.isObject() ? requestBody.get("approvingPractitionerId") : null;
+        if (practitionerIdNode == null || practitionerIdNode.isNull()) {
+            return null;
+        }
+        if (practitionerIdNode.isNumber()) {
+            return practitionerIdNode.asInt();
+        }
+        if (practitionerIdNode.isTextual()) {
+            try {
+                return Integer.parseInt(practitionerIdNode.asText());
+            } catch (NumberFormatException ignored) {
+                return null;
+            }
+        }
+        return null;
     }
 
     /**
@@ -108,7 +175,7 @@ public class ObservationController {
      * @return List of ObservationResponses.
      */
     @GetMapping("/by-service-request/{serviceRequestId}")
-    @PreAuthorize("hasAnyRole('TECHNICIAN', 'PATHOLOGIST', 'DOCTOR', 'MANAGER') and @securityService.canAccessServiceRequest(#serviceRequestId)")
+    @PreAuthorize("hasAnyRole('TECHNICIAN', 'PATHOLOGIST', 'DOCTOR') and @securityService.canAccessServiceRequest(#serviceRequestId)")
     public ResponseEntity<List<ObservationResponse>> getObservationsByServiceRequestId(@PathVariable Integer serviceRequestId) {
         List<ObservationResponse> responses = observationService.getObservationsByServiceRequestId(serviceRequestId);
         return new ResponseEntity<>(responses, HttpStatus.OK);
@@ -120,7 +187,7 @@ public class ObservationController {
      * @return ObservationResponse.
      */
     @GetMapping("/{id}")
-    @PreAuthorize("hasAnyRole('TECHNICIAN', 'PATHOLOGIST', 'DOCTOR', 'MANAGER') and @securityService.canAccessObservation(#id)")
+    @PreAuthorize("hasAnyRole('TECHNICIAN', 'PATHOLOGIST', 'DOCTOR') and @securityService.canAccessObservation(#id)")
     public ResponseEntity<ObservationResponse> getObservationById(@PathVariable Integer id) {
         ObservationResponse response = observationService.getObservationById(id);
         return new ResponseEntity<>(response, HttpStatus.OK);
