@@ -1,0 +1,1 @@
+ALTER TABLE public.test_analytes ADD COLUMN IF NOT EXISTS method VARCHAR(255);

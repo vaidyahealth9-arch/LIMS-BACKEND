@@ -271,41 +271,366 @@ public class ObservationService {
     }
 
     private void applyReferenceRangeInterpretation(Observation obs) {
-        // Get all reference ranges for this analyte
         List<ReferenceRange> ranges = referenceRangeRepository.findByAnalyteId(obs.getAnalyte().getId());
-        
         if (ranges.isEmpty()) {
-            // No reference ranges defined for this analyte
             return;
         }
         
-        // Use the first reference range (primary range for this analyte)
         ReferenceRange primaryRange = ranges.get(0);
         obs.setReferenceRange(primaryRange);
         
-        // Only determine interpretation if we have a numeric value
-        if (obs.getValueNumeric() == null) {
-            return;
+        // Try to obtain a numeric value
+        Double val = null;
+        if (obs.getValueNumeric() != null) {
+            val = obs.getValueNumeric().doubleValue();
+        } else {
+            String strVal = obs.getValueString();
+            if (strVal == null || strVal.isBlank()) {
+                strVal = obs.getValueCode();
+            }
+            if (strVal != null && !strVal.isBlank()) {
+                try {
+                    val = Double.parseDouble(strVal.trim());
+                } catch (NumberFormatException e) {
+                    // Not numeric, handle as qualitative/titer below
+                }
+            }
         }
         
-        // Determine interpretation code based on value vs reference range
-        if (primaryRange.getLowValue() != null && obs.getValueNumeric().compareTo(primaryRange.getLowValue()) < 0) {
-            obs.setInterpretationCode("L");  // Low
-        } else if (primaryRange.getHighValue() != null && obs.getValueNumeric().compareTo(primaryRange.getHighValue()) > 0) {
-            obs.setInterpretationCode("H");  // High
-        } else {
-            obs.setInterpretationCode("N");  // Normal (within range or no bounds)
+        // Titer matching check
+        String strVal = obs.getValueString();
+        if (strVal == null || strVal.isBlank()) {
+            strVal = obs.getValueCode();
         }
+        if (strVal != null && !strVal.isBlank()) {
+            String cleanVal = strVal.trim();
+            java.util.regex.Matcher patientTiterMatcher = java.util.regex.Pattern.compile("1\\s*:\\s*([0-9]+)").matcher(cleanVal);
+            if (patientTiterMatcher.find()) {
+                int patientDenominator = Integer.parseInt(patientTiterMatcher.group(1));
+                String textRange = primaryRange.getTextRange();
+                if (textRange != null && !textRange.isBlank()) {
+                    java.util.regex.Matcher thresholdMatcher = java.util.regex.Pattern.compile("(?:Significant|Reactive|Abnormal)?\\s*(?:>=|≥|>=)\\s*1\\s*:\\s*([0-9]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(textRange);
+                    if (thresholdMatcher.find()) {
+                        int thresholdDenominator = Integer.parseInt(thresholdMatcher.group(1));
+                        if (patientDenominator >= thresholdDenominator) {
+                            obs.setInterpretationCode("H");
+                        } else {
+                            obs.setInterpretationCode("N");
+                        }
+                        return;
+                    }
+                }
+            }
+        }
+
+        String textRange = primaryRange.getTextRange();
+        if (textRange == null || textRange.isBlank()) {
+            textRange = obs.getAnalyte().getBiologicalRefInterval();
+        }
+        
+        Double dbLow = (primaryRange.getLowValue() != null) ? primaryRange.getLowValue().doubleValue() : null;
+        Double dbHigh = (primaryRange.getHighValue() != null) ? primaryRange.getHighValue().doubleValue() : null;
+        
+        if (val != null) {
+            // Demographic properties
+            String gender = (obs.getPatient() != null) ? obs.getPatient().getGender() : null;
+            int ageYears = -1;
+            if (obs.getPatient() != null && obs.getPatient().getDateOfBirth() != null) {
+                try {
+                    ageYears = java.time.Period.between(obs.getPatient().getDateOfBirth(), java.time.LocalDate.now()).getYears();
+                } catch (Exception e) {
+                    // Ignore
+                }
+            }
+
+            if (textRange != null && !textRange.isBlank()) {
+                // Split parts by |, ;, or newlines, or commas
+                String[] splitParts = textRange.split("[|;\\n,]");
+                List<String> parts = new ArrayList<>();
+                for (String part : splitParts) {
+                    if (!part.isBlank()) {
+                        parts.add(part.trim());
+                    }
+                }
+
+                // Demographic filtering
+                List<String> filteredParts = new ArrayList<>();
+                boolean hasSpecificParts = false;
+                for (String part : parts) {
+                    boolean genderMatch = matchesGender(part, gender);
+                    boolean ageMatch = matchesAge(part, ageYears);
+                    
+                    String partLower = part.toLowerCase();
+                    boolean isSpecific = partLower.matches(".*\\b(male|males|men|man|female|females|women|woman|yr|year|age)\\b.*");
+                    if (isSpecific) {
+                        hasSpecificParts = true;
+                    }
+                    if (genderMatch && ageMatch) {
+                        filteredParts.add(part);
+                    }
+                }
+
+                if (filteredParts.isEmpty() && hasSpecificParts) {
+                    // fallback to all parts if no match
+                    filteredParts = parts;
+                } else if (!filteredParts.isEmpty()) {
+                    parts = filteredParts;
+                }
+
+                // Extract condition-label pairs
+                class ConditionLabel {
+                    String conditionText;
+                    String label;
+                    ConditionLabel(String c, String l) {
+                        this.conditionText = c;
+                        this.label = l;
+                    }
+                }
+                List<ConditionLabel> condLabels = new ArrayList<>();
+                for (String part : parts) {
+                    int colonIdx = part.indexOf(':');
+                    if (colonIdx != -1) {
+                        String left = part.substring(0, colonIdx).trim();
+                        String right = part.substring(colonIdx + 1).trim();
+                        
+                        boolean leftHasNumericOrOp = left.matches(".*(?:<|>|≤|≥|=|\\bto\\b|[0-9]).*");
+                        boolean rightHasNumericOrOp = right.matches(".*(?:<|>|≤|≥|=|\\bto\\b|[0-9]).*");
+                        
+                        if (leftHasNumericOrOp && !rightHasNumericOrOp) {
+                            condLabels.add(new ConditionLabel(left, right));
+                        } else if (rightHasNumericOrOp && !leftHasNumericOrOp) {
+                            condLabels.add(new ConditionLabel(right, left));
+                        } else {
+                            condLabels.add(new ConditionLabel(right, left));
+                        }
+                    } else {
+                        java.util.regex.Matcher mRange = java.util.regex.Pattern.compile("([0-9.]+)\\s*(?:-|–|—|to)\\s*([0-9.]+)").matcher(part);
+                        java.util.regex.Matcher mLimit = java.util.regex.Pattern.compile("(?:<|>|≤|≥|<=|>=)\\s*([0-9.]+)").matcher(part);
+                        
+                        if (mRange.find()) {
+                            String cond = mRange.group();
+                            String label = part.replace(cond, "").replaceAll("[^a-zA-Z\\s]", "").trim();
+                            condLabels.add(new ConditionLabel(cond, label));
+                        } else if (mLimit.find()) {
+                            String cond = mLimit.group();
+                            String label = part.replace(cond, "").replaceAll("[^a-zA-Z\\s]", "").trim();
+                            condLabels.add(new ConditionLabel(cond, label));
+                        } else {
+                            condLabels.add(new ConditionLabel("", part));
+                        }
+                    }
+                }
+
+                // Evaluate conditions
+                Double minLow = null;
+                Double maxHigh = null;
+                boolean matchedAny = false;
+                String matchedCode = null;
+
+                for (ConditionLabel cl : condLabels) {
+                    String cond = cl.conditionText.trim();
+                    String label = cl.label.trim();
+                    String code = mapLabelToInterpretationCode(label);
+                    
+                    Double lowLimit = null;
+                    Double highLimit = null;
+                    boolean matchesVal = false;
+                    
+                    java.util.regex.Matcher mRange = java.util.regex.Pattern.compile("([0-9.]+)\\s*(?:-|–|—|to)\\s*([0-9.]+)").matcher(cond);
+                    if (mRange.find()) {
+                        lowLimit = Double.parseDouble(mRange.group(1));
+                        highLimit = Double.parseDouble(mRange.group(2));
+                        if (val >= lowLimit && val <= highLimit) {
+                            matchesVal = true;
+                        }
+                    } else {
+                        java.util.regex.Matcher mLess = java.util.regex.Pattern.compile("(?:<|≤|<=)\\s*([0-9.]+)").matcher(cond);
+                        if (mLess.find()) {
+                            highLimit = Double.parseDouble(mLess.group(1));
+                            if (cond.contains("<") && !cond.contains("<=")) {
+                                if (val < highLimit) matchesVal = true;
+                            } else {
+                                if (val <= highLimit) matchesVal = true;
+                            }
+                        } else {
+                            java.util.regex.Matcher mGreater = java.util.regex.Pattern.compile("(?:>|≥|>=)\\s*([0-9.]+)").matcher(cond);
+                            if (mGreater.find()) {
+                                lowLimit = Double.parseDouble(mGreater.group(1));
+                                if (cond.contains(">") && !cond.contains(">=")) {
+                                    if (val > lowLimit) matchesVal = true;
+                                } else {
+                                    if (val >= lowLimit) matchesVal = true;
+                                }
+                            } else {
+                                java.util.regex.Matcher mUpTo = java.util.regex.Pattern.compile("up\\s+to\\s+([0-9.]+)", java.util.regex.Pattern.CASE_INSENSITIVE).matcher(cond);
+                                if (mUpTo.find()) {
+                                    highLimit = Double.parseDouble(mUpTo.group(1));
+                                    if (val <= highLimit) matchesVal = true;
+                                }
+                            }
+                        }
+                    }
+                    
+                    if ("N".equals(code)) {
+                        if (lowLimit != null) {
+                            if (minLow == null || lowLimit < minLow) {
+                                minLow = lowLimit;
+                            }
+                        }
+                        if (highLimit != null) {
+                            if (maxHigh == null || highLimit > maxHigh) {
+                                maxHigh = highLimit;
+                            }
+                        }
+                    }
+                    
+                    if (matchesVal) {
+                        matchedAny = true;
+                        if (matchedCode == null || "N".equals(matchedCode)) {
+                            matchedCode = code;
+                        }
+                    }
+                }
+
+                if (matchedAny) {
+                    obs.setInterpretationCode(matchedCode);
+                    return;
+                }
+
+                if (minLow != null && val < minLow) {
+                    obs.setInterpretationCode("L");
+                    return;
+                }
+                if (maxHigh != null && val > maxHigh) {
+                    obs.setInterpretationCode("H");
+                    return;
+                }
+            }
+            
+            // Fallback to database bounds
+            if (dbLow != null || dbHigh != null) {
+                if (dbLow != null && val < dbLow) {
+                    obs.setInterpretationCode("L");
+                } else if (dbHigh != null && val > dbHigh) {
+                    obs.setInterpretationCode("H");
+                } else {
+                    obs.setInterpretationCode("N");
+                }
+                return;
+            }
+        }
+        
+        // Handle qualitative/text string interpretation
+        if (strVal != null && !strVal.isBlank()) {
+            String cleanVal = strVal.trim().toLowerCase();
+            
+            if (cleanVal.equals("negative") || cleanVal.equals("absent") || cleanVal.equals("non-reactive") || 
+                cleanVal.equals("non reactive") || cleanVal.equals("normal") || cleanVal.equals("nil") ||
+                cleanVal.contains("not detected") || cleanVal.equals("undetected") || cleanVal.equals("clear") ||
+                cleanVal.equals("healthy")) {
+                obs.setInterpretationCode("N");
+            } else if (cleanVal.equals("positive") || cleanVal.equals("reactive") || cleanVal.equals("present") || 
+                       cleanVal.equals("abnormal") || cleanVal.contains("reactive") || cleanVal.contains("detected") ||
+                       cleanVal.equals("1+") || cleanVal.equals("2+") || cleanVal.equals("3+") || cleanVal.equals("4+")) {
+                obs.setInterpretationCode("H");
+            } else {
+                if (obs.getInterpretationCode() == null) {
+                    obs.setInterpretationCode("N");
+                }
+            }
+        } else {
+            if (obs.getInterpretationCode() == null) {
+                obs.setInterpretationCode("N");
+            }
+        }
+    }
+
+    private boolean matchesGender(String text, String patientGender) {
+        if (patientGender == null) return true;
+        String clean = text.toLowerCase();
+        boolean mentionsMale = clean.matches(".*\\b(male|males|men|man)\\b.*");
+        boolean mentionsFemale = clean.matches(".*\\b(female|females|women|woman)\\b.*");
+        
+        if ("male".equalsIgnoreCase(patientGender)) {
+            if (mentionsFemale && !mentionsMale) {
+                return false;
+            }
+            if (mentionsMale && !mentionsFemale) {
+                return true;
+            }
+        } else if ("female".equalsIgnoreCase(patientGender)) {
+            if (mentionsMale && !mentionsFemale) {
+                return false;
+            }
+            if (mentionsFemale && !mentionsMale) {
+                return true;
+            }
+        }
+        return true;
+    }
+
+    private boolean matchesAge(String text, int ageYears) {
+        if (ageYears < 0) return true;
+        String clean = text.toLowerCase();
+        
+        java.util.regex.Matcher mUnder = java.util.regex.Pattern.compile("(?:<|≤|<=|under|less\\s+than)\\s*([0-9]+)\\s*(?:yr|year|yr|age)").matcher(clean);
+        if (mUnder.find()) {
+            int limit = Integer.parseInt(mUnder.group(1));
+            return ageYears < limit;
+        }
+        
+        java.util.regex.Matcher mOver = java.util.regex.Pattern.compile("(?:>|≥|>=|over|above|greater\\s+than)\\s*([0-9]+)\\s*(?:yr|year|yr|age)").matcher(clean);
+        if (mOver.find()) {
+            int limit = Integer.parseInt(mOver.group(1));
+            return ageYears > limit;
+        }
+        
+        return true;
+    }
+
+    private String mapLabelToInterpretationCode(String label) {
+        if (label == null) return "N";
+        String clean = label.trim().toLowerCase();
+        
+        if (clean.contains("normal") || clean.contains("negative") || clean.contains("absent") ||
+            clean.contains("non-reactive") || clean.contains("non reactive") || clean.contains("nil") ||
+            clean.contains("sufficiency") || clean.contains("sufficient") || clean.contains("desirable") ||
+            clean.contains("optimal") || clean.contains("non-diabetic") || clean.contains("non-smokers") ||
+            clean.contains("control") || clean.contains("clear")) {
+            return "N";
+        }
+        
+        if (clean.contains("deficiency") || clean.contains("insufficiency") || clean.contains("low") ||
+            clean.contains("decreased") || clean.contains("below")) {
+            return "L";
+        }
+        
+        if (clean.contains("positive") || clean.contains("reactive") || clean.contains("present") ||
+            clean.contains("abnormal") || clean.contains("toxicity") || clean.contains("high") ||
+            clean.contains("significant") || clean.contains("diabetic") || clean.contains("diabetes") ||
+            clean.contains("smokers") || clean.contains("elevated") || clean.contains("above") ||
+            clean.contains("indeterminate") || clean.contains("equivocal") || clean.contains("borderline") ||
+            clean.contains("impaired") || clean.contains("pre-diabetic") || clean.contains("very high")) {
+            return "H";
+        }
+        
+        return "N";
     }
 
     private ObservationResponse mapToResponse(Observation obs) {
         ObservationResponse resp = new ObservationResponse();
-        resp.setId(obs.getId().toString());
-        resp.setServiceRequestId(obs.getServiceRequest().getId().toString());
-        if (obs.getSpecimen() != null) {
+        if (obs.getId() != null) {
+            resp.setId(obs.getId().toString());
+        }
+        if (obs.getServiceRequest() != null && obs.getServiceRequest().getId() != null) {
+            resp.setServiceRequestId(obs.getServiceRequest().getId().toString());
+        }
+        if (obs.getSpecimen() != null && obs.getSpecimen().getId() != null) {
             resp.setSpecimenId(obs.getSpecimen().getId().toString());
         }
-        resp.setAnalyteId(obs.getAnalyte().getId().toString());
+        if (obs.getAnalyte() != null && obs.getAnalyte().getId() != null) {
+            resp.setAnalyteId(obs.getAnalyte().getId().toString());
+        }
         resp.setAnalyteName(obs.getAnalyte().getAnalyteName());
         resp.setTestName(obs.getAnalyte().getParentTest().getTestName());
         resp.setValueNumeric(obs.getValueNumeric());

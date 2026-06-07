@@ -78,11 +78,32 @@ public class RazorpayService {
     }
 
     /**
-     * Create a Razorpay customer
+     * Create a Razorpay customer or reuse an existing one if already registered.
      */
     public String createRazorpayCustomer(String customerName, String email, String phone) {
         if (!isConfigured()) throw new RuntimeException("Razorpay not configured");
         try {
+            // Check if the customer already exists in Razorpay to avoid duplicate merchant customer errors
+            try {
+                JSONObject query = new JSONObject();
+                if (phone != null && !phone.isBlank()) {
+                    query.put("contact", phone.trim());
+                } else if (email != null && !email.isBlank()) {
+                    query.put("email", email.trim());
+                }
+
+                if (!query.isEmpty()) {
+                    java.util.List<Customer> customers = razorpayClient.customers.fetchAll(query);
+                    if (customers != null && !customers.isEmpty()) {
+                        String existingId = customers.get(0).get("id");
+                        log.info("Found existing Razorpay customer ID: {}", existingId);
+                        return existingId;
+                    }
+                }
+            } catch (Exception ex) {
+                log.warn("Failed to query existing customer from Razorpay: {}", ex.getMessage());
+            }
+
             JSONObject customerRequest = new JSONObject();
             customerRequest.put("name", customerName);
             customerRequest.put("email", email);
@@ -93,7 +114,7 @@ public class RazorpayService {
             return customer.get("id");
         } catch (RazorpayException e) {
             log.error("Error creating Razorpay customer: {}", e.getMessage());
-            throw new RuntimeException("Failed to create Razorpay customer", e);
+            throw new RuntimeException("Failed to create Razorpay customer: " + e.getMessage(), e);
         }
     }
 
@@ -123,6 +144,25 @@ public class RazorpayService {
     }
 
     /**
+     * Create a standard Razorpay Order.
+     */
+    public String createRazorpayOrder(BigDecimal amount) {
+        if (!isConfigured()) throw new RuntimeException("Razorpay not configured");
+        try {
+            JSONObject orderRequest = new JSONObject();
+            orderRequest.put("amount", amount.multiply(new BigDecimal("100")).longValue()); // in paise
+            orderRequest.put("currency", "INR");
+            orderRequest.put("receipt", "receipt_" + System.currentTimeMillis());
+            
+            com.razorpay.Order order = razorpayClient.orders.create(orderRequest);
+            return order.get("id");
+        } catch (RazorpayException e) {
+            log.error("Error creating Razorpay order: {}", e.getMessage());
+            throw new RuntimeException("Failed to create Razorpay order: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Verify Razorpay webhook signature (HMAC-SHA256).
      * Skip verification when webhook secret is not configured (local dev with no webhook).
      */
@@ -147,12 +187,36 @@ public class RazorpayService {
         try {
             JSONObject params = new JSONObject();
             params.put("razorpay_payment_id", paymentId);
-            params.put("razorpay_subscription_id", subscriptionId);
             params.put("razorpay_signature", receivedSignature);
+
+            if (subscriptionId != null && !subscriptionId.isBlank()) {
+                params.put("razorpay_subscription_id", subscriptionId);
+                return Utils.verifySubscription(params, razorpayKeySecret);
+            } else {
+                log.warn("subscriptionId is missing in verifyPaymentSignature, attempting verifyPaymentSignature fallback.");
+                Utils.verifyPaymentSignature(params, razorpayKeySecret);
+                return true;
+            }
+        } catch (RazorpayException e) {
+            log.warn("Razorpay signature verification failed: {}", e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Verify standard Razorpay order payment signature.
+     */
+    public boolean verifyOrderSignature(String paymentId, String orderId, String receivedSignature) {
+        try {
+            JSONObject params = new JSONObject();
+            params.put("razorpay_payment_id", paymentId);
+            params.put("razorpay_order_id", orderId);
+            params.put("razorpay_signature", receivedSignature);
+
             Utils.verifyPaymentSignature(params, razorpayKeySecret);
             return true;
         } catch (RazorpayException e) {
-            log.warn("Payment signature verification failed: {}", e.getMessage());
+            log.warn("Razorpay order signature verification failed: {}", e.getMessage());
             return false;
         }
     }

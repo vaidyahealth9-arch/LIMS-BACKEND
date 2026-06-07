@@ -23,5 +23,7 @@ public class ConfirmSubscriptionRequest {
     // Razorpay payment response fields (from handler callback)
     private String razorpayPaymentId;
     private String razorpaySubscriptionId;
+    private String razorpayOrderId;
     private String razorpaySignature;
+    private String razorpayCustomerId;
 }

@@ -155,9 +155,127 @@ class ObservationServiceTest {
         when(diagnosticReportRepository.findByServiceRequest_Id(40)).thenReturn(Optional.empty());
         when(reportService.getStoredOrGeneratedPdfReport(anyInt(), any(Boolean.class), any())).thenThrow(new RuntimeException("storage unavailable"));
 
-                List<ObservationResponse> responses = assertDoesNotThrow(() -> observationService.approveObservations(List.of(60), 50));
+        List<ObservationResponse> responses = assertDoesNotThrow(() -> observationService.approveObservations(List.of(60), 50));
 
-                verify(observationRepository).saveAll(any());
+        verify(observationRepository).saveAll(any());
         assertEquals(1, responses.size());
+    }
+
+    @Test
+    void testReferenceRangeInterpretations() {
+        // Mock dependencies
+        com.halo.lims.model.Organization org = com.halo.lims.model.Organization.builder().id(1).build();
+        Patient femalePatient = Patient.builder()
+                .id(1)
+                .gender("female")
+                .dateOfBirth(LocalDate.now().minusYears(30)) // 30 years old
+                .organization(org)
+                .build();
+        
+        ServiceRequest sr = ServiceRequest.builder().id(1).patient(femalePatient).build();
+        
+        com.halo.lims.model.Test test = com.halo.lims.model.Test.builder().id(1).testName("General").build();
+        TestAnalyte analyte = TestAnalyte.builder()
+                .id(1)
+                .analyteCode("ANALYTE")
+                .analyteName("Analyte")
+                .parentTest(test)
+                .resultType("numeric")
+                .build();
+        
+        Practitioner performer = Practitioner.builder().id(1).build();
+        
+        when(serviceRequestRepository.findById(1)).thenReturn(Optional.of(sr));
+        when(testAnalyteRepository.findById(1)).thenReturn(Optional.of(analyte));
+        when(practitionerRepository.findById(1)).thenReturn(Optional.of(performer));
+        when(observationRepository.save(any(Observation.class))).thenAnswer(invocation -> invocation.getArgument(0));
+
+        // Case 1: Titer interpretation
+        com.halo.lims.model.ReferenceRange rrTiter = com.halo.lims.model.ReferenceRange.builder()
+                .id(1)
+                .analyte(analyte)
+                .textRange("Significant: ≥1:80")
+                .build();
+        when(referenceRangeRepository.findByAnalyteId(1)).thenReturn(List.of(rrTiter));
+        
+        // Value: 1:40 (should be N)
+        com.halo.lims.dto.observation.ObservationCreateRequest req1 = new com.halo.lims.dto.observation.ObservationCreateRequest();
+        req1.setServiceRequestId(1);
+        req1.setAnalyteId(1);
+        req1.setValueString("1:40");
+        ObservationResponse res1 = observationService.createObservation(req1, 1);
+        assertEquals("N", res1.getInterpretation());
+        
+        // Value: 1:160 (should be H)
+        com.halo.lims.dto.observation.ObservationCreateRequest req2 = new com.halo.lims.dto.observation.ObservationCreateRequest();
+        req2.setServiceRequestId(1);
+        req2.setAnalyteId(1);
+        req2.setValueString("1:160");
+        ObservationResponse res2 = observationService.createObservation(req2, 1);
+        assertEquals("H", res2.getInterpretation());
+
+        // Case 2: Multi-range with negative/indeterminate/positive
+        com.halo.lims.model.ReferenceRange rrMulti = com.halo.lims.model.ReferenceRange.builder()
+                .id(2)
+                .analyte(analyte)
+                .textRange("<14: Negative | 14-19: Indeterminate | >19: Positive")
+                .build();
+        when(referenceRangeRepository.findByAnalyteId(1)).thenReturn(List.of(rrMulti));
+        
+        // Value: 5 (should be N)
+        com.halo.lims.dto.observation.ObservationCreateRequest req3 = new com.halo.lims.dto.observation.ObservationCreateRequest();
+        req3.setServiceRequestId(1);
+        req3.setAnalyteId(1);
+        req3.setValueNumeric(new java.math.BigDecimal("5"));
+        ObservationResponse res3 = observationService.createObservation(req3, 1);
+        assertEquals("N", res3.getInterpretation());
+        
+        // Value: 15 (should be H for Indeterminate)
+        req3.setValueNumeric(new java.math.BigDecimal("15"));
+        ObservationResponse res3b = observationService.createObservation(req3, 1);
+        assertEquals("H", res3b.getInterpretation());
+
+        // Case 3: Demographic filtering (Female <50yr:15-40, Female >50yr:21-43, Male <50yr:19-44)
+        com.halo.lims.model.ReferenceRange rrDemog = com.halo.lims.model.ReferenceRange.builder()
+                .id(3)
+                .analyte(analyte)
+                .textRange("Female <50yr:15-40, Female >50yr:21-43, Male <50yr:19-44")
+                .build();
+        when(referenceRangeRepository.findByAnalyteId(1)).thenReturn(List.of(rrDemog));
+        
+        // Patient is female, 30 years old. Normal range should be 15-40.
+        // Value: 45 (should be H)
+        com.halo.lims.dto.observation.ObservationCreateRequest req4 = new com.halo.lims.dto.observation.ObservationCreateRequest();
+        req4.setServiceRequestId(1);
+        req4.setAnalyteId(1);
+        req4.setValueNumeric(new java.math.BigDecimal("45"));
+        ObservationResponse res4 = observationService.createObservation(req4, 1);
+        assertEquals("H", res4.getInterpretation());
+        
+        // Value: 10 (should be L)
+        req4.setValueNumeric(new java.math.BigDecimal("10"));
+        ObservationResponse res4b = observationService.createObservation(req4, 1);
+        assertEquals("L", res4b.getInterpretation());
+
+        // Case 4: Deficiency / Toxicity: Deficiency: <20 | Sufficiency: 30-100 | Toxicity: >100
+        com.halo.lims.model.ReferenceRange rrDef = com.halo.lims.model.ReferenceRange.builder()
+                .id(4)
+                .analyte(analyte)
+                .textRange("Deficiency: <20 | Sufficiency: 30-100 | Toxicity: >100")
+                .build();
+        when(referenceRangeRepository.findByAnalyteId(1)).thenReturn(List.of(rrDef));
+        
+        // Value: 25 (should be L)
+        com.halo.lims.dto.observation.ObservationCreateRequest req5 = new com.halo.lims.dto.observation.ObservationCreateRequest();
+        req5.setServiceRequestId(1);
+        req5.setAnalyteId(1);
+        req5.setValueNumeric(new java.math.BigDecimal("25"));
+        ObservationResponse res5 = observationService.createObservation(req5, 1);
+        assertEquals("L", res5.getInterpretation());
+        
+        // Value: 120 (should be H)
+        req5.setValueNumeric(new java.math.BigDecimal("120"));
+        ObservationResponse res5b = observationService.createObservation(req5, 1);
+        assertEquals("H", res5b.getInterpretation());
     }
 }

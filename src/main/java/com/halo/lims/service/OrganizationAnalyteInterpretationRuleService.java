@@ -117,9 +117,9 @@ public class OrganizationAnalyteInterpretationRuleService {
         List<TestAnalyte> analytes = testAnalyteRepository.findByParentTestId(testId);
 
         return analytes.stream().map(analyte -> {
-            OrganizationAnalyteInterpretationRule orgRule = organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(analyte.getId(), organization.getId());
-            if (orgRule != null) {
-                return List.of(interpretationRuleMapper.mapToInterpretationRuleResponse(orgRule));
+            List<OrganizationAnalyteInterpretationRule> orgRules = organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(analyte.getId(), organization.getId());
+            if (orgRules != null && !orgRules.isEmpty()) {
+                return orgRules.stream().map(interpretationRuleMapper::mapToInterpretationRuleResponse).collect(Collectors.toList());
             }
 
             List<com.halo.lims.model.TestInterpretationRule> globalRules = testInterpretationRuleRepository.findByAnalyte(analyte);
@@ -136,9 +136,9 @@ public class OrganizationAnalyteInterpretationRuleService {
         TestAnalyte analyte = testAnalyteRepository.findById(analyteId)
                 .orElseThrow(() -> new RuntimeException("Analyte not found with ID: " + analyteId));
 
-        OrganizationAnalyteInterpretationRule orgRule = organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(analyteId, organizationId);
-        if (orgRule != null) {
-            return interpretationRuleMapper.mapToInterpretationRuleResponse(orgRule);
+        List<OrganizationAnalyteInterpretationRule> orgRules = organizationAnalyteInterpretationRuleRepository.findByAnalyteIdAndOrganizationId(analyteId, organizationId);
+        if (orgRules != null && !orgRules.isEmpty()) {
+            return interpretationRuleMapper.mapToInterpretationRuleResponse(orgRules.get(0));
         }
 
         return testInterpretationRuleRepository.findByAnalyte(analyte)

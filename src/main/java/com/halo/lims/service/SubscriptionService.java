@@ -75,9 +75,11 @@ public class SubscriptionService {
         if (subscription == null) {
             summary.setHasActiveSubscription(false);
             summary.setIsOnTrial(false);
+            summary.setHasUsedTrial(false);
             return summary;
         }
 
+        summary.setHasUsedTrial(true);
         summary.setStatus(subscription.getStatus());
         summary.setCurrentPlanName(subscription.getPlan().getPlanName());
         summary.setMonthlyAmount(subscription.getMonthlyAmount());
@@ -132,54 +134,83 @@ public class SubscriptionService {
 
         Optional<Subscription> existingOpt = subscriptionRepository.findByOrganizationId(organizationId);
 
+        int trialDays = plan.getTrialDays() != null ? plan.getTrialDays() : 7;
+
+        if (Boolean.TRUE.equals(request.getSkipTrial())) {
+            log.info("Request requested to skip trial for org {}. Setting trialDays = 0", organizationId);
+            trialDays = 0;
+        }
+
         if (existingOpt.isPresent()) {
             Subscription existing = existingOpt.get();
-            if ("ACTIVE".equals(existing.getStatus())) {
-                // True pile-up: paying customer extending an already-active subscription.
-                // No new mandate needed — /confirm will simply extend currentCycleEnd.
-                log.info("ACTIVE subscription found for org {}. Pile-up mode — skipping new mandate.", organizationId);
-                return InitiateSubscriptionResponse.builder()
-                        .razorpayKeyId(razorpayService.getRazorpayKeyId())
-                        .razorpaySubscriptionId(null)
-                        .planId(plan.getId())
-                        .planName(plan.getPlanName())
-                        .isNewSubscription(false)
-                        .build();
+            if (existing.getPlan().getId().equals(plan.getId())) {
+                if ("ACTIVE".equals(existing.getStatus())) {
+                    log.info("Organization {} already has an ACTIVE subscription to the same plan: {}", organizationId, plan.getPlanName());
+                    throw new RuntimeException("You already have an active subscription to the " + plan.getPlanName() + " plan. It will auto-renew at the end of the billing cycle.");
+                }
+                if ("TRIAL".equals(existing.getStatus()) && !Boolean.TRUE.equals(request.getSkipTrial())) {
+                    log.info("Organization {} already has a TRIAL subscription to the same plan: {}", organizationId, plan.getPlanName());
+                    throw new RuntimeException("You already have a trial subscription to the " + plan.getPlanName() + " plan.");
+                }
             }
-            // For TRIAL / EXPIRED / CANCELLED / PAST_DUE:
-            // The existing row is a ghost (unpaid trial or lapsed sub).
-            // Create a fresh Razorpay mandate so the user goes through checkout.
-            log.info("Existing {} subscription found for org {} — creating fresh Razorpay mandate.",
+            log.info("Existing {} subscription found for org {} — creating fresh Razorpay mandate with 0 trial days (one-time trial policy).",
                     existing.getStatus(), organizationId);
+            trialDays = 0;
         }
 
-        // New subscription — create full Razorpay mandate
-        // Step 1: Ensure Razorpay Plan exists (cached in DB)
-        String razorpayPlanId = plan.getRazorpayPlanId();
-        if (razorpayPlanId == null || razorpayPlanId.isBlank()) {
-            log.info("Creating Razorpay plan for '{}'", plan.getPlanName());
-            razorpayPlanId = razorpayService.createRazorpayPlan(plan.getPlanName(), plan.getDiscountedPrice(), "monthly");
-            plan.setRazorpayPlanId(razorpayPlanId);
-            subscriptionPlanRepository.save(plan);
+        if (trialDays > 0) {
+            log.info("First-time subscription for org {} gets {} trial days. Activating trial directly.", organizationId, trialDays);
+            return InitiateSubscriptionResponse.builder()
+                    .razorpayKeyId(null)
+                    .razorpaySubscriptionId(null)
+                    .razorpayOrderId(null)
+                    .razorpayCustomerId(null)
+                    .razorpayPlanId(null)
+                    .planId(plan.getId())
+                    .planName(plan.getPlanName())
+                    .isNewSubscription(false)
+                    .build();
         }
 
-        // Step 2: Create Razorpay Customer (Fix #7 — use real data from request)
-        String razorpayCustomerId = razorpayService.createRazorpayCustomer(
-                request.getCustomerName(),
-                request.getContactEmail(),
-                request.getContactPhone()
-        );
+        // Create standard Razorpay Order for renewal/upgrade/downgrade (no e-mandate)
+        String razorpayOrderId = null;
+        if (razorpayService.isConfigured()) {
+            try {
+                razorpayOrderId = razorpayService.createRazorpayOrder(plan.getDiscountedPrice());
+            } catch (Exception e) {
+                log.error("Failed to create Razorpay Order, falling back to offline order", e);
+                razorpayOrderId = "mock_order_" + System.currentTimeMillis();
+            }
+        } else {
+            razorpayOrderId = "mock_order_" + System.currentTimeMillis();
+        }
 
-        // Step 3: Create Razorpay Subscription (mandate, starts after trial)
-        int trialDays = plan.getTrialDays() != null ? plan.getTrialDays() : 7;
-        String razorpaySubscriptionId = razorpayService.createRazorpaySubscription(
-                razorpayPlanId, razorpayCustomerId, trialDays);
+        // Create or Re-use Razorpay Customer
+        String razorpayCustomerId = null;
+        if (existingOpt.isPresent() && existingOpt.get().getRazorpayCustomerId() != null 
+                && !existingOpt.get().getRazorpayCustomerId().isBlank()) {
+            razorpayCustomerId = existingOpt.get().getRazorpayCustomerId();
+            log.info("Reusing existing Razorpay customer ID: {}", razorpayCustomerId);
+        } else {
+            try {
+                if (razorpayService.isConfigured()) {
+                    razorpayCustomerId = razorpayService.createRazorpayCustomer(
+                            request.getCustomerName(),
+                            request.getContactEmail(),
+                            request.getContactPhone()
+                    );
+                }
+            } catch (Exception e) {
+                log.warn("Failed to create Razorpay Customer: {}", e.getMessage());
+            }
+        }
 
         return InitiateSubscriptionResponse.builder()
                 .razorpayKeyId(razorpayService.getRazorpayKeyId())
-                .razorpaySubscriptionId(razorpaySubscriptionId)
+                .razorpaySubscriptionId(null)
+                .razorpayOrderId(razorpayOrderId)
                 .razorpayCustomerId(razorpayCustomerId)
-                .razorpayPlanId(razorpayPlanId)
+                .razorpayPlanId(null)
                 .planId(plan.getId())
                 .planName(plan.getPlanName())
                 .isNewSubscription(true)
@@ -189,19 +220,26 @@ public class SubscriptionService {
     /**
      * PHASE 2 — Confirm: called after the Razorpay checkout handler fires.
      * Verifies the payment signature and only then persists the subscription to DB.
-     * Handles both new subscriptions (TRIAL) and pile-up extensions (ACTIVE).
+     * Handles both new subscriptions (TRIAL) and upgrades/downgrades (ACTIVE).
      */
     @Transactional
     public SubscriptionDTO confirmSubscription(ConfirmSubscriptionRequest request) {
         log.info("Confirming subscription for organization: {}", request.getOrganizationId());
 
-        // Verify payment signature when provided (skip for ACTIVE pile-up with no new payment)
-        if (request.getRazorpayPaymentId() != null && request.getRazorpaySubscriptionId() != null
-                && request.getRazorpaySignature() != null) {
-            boolean valid = razorpayService.verifyPaymentSignature(
-                    request.getRazorpayPaymentId(),
-                    request.getRazorpaySubscriptionId(),
-                    request.getRazorpaySignature());
+        // Verify payment signature when provided
+        if (request.getRazorpayPaymentId() != null && request.getRazorpaySignature() != null) {
+            boolean valid = false;
+            if (request.getRazorpayOrderId() != null && !request.getRazorpayOrderId().isBlank()) {
+                valid = razorpayService.verifyOrderSignature(
+                        request.getRazorpayPaymentId(),
+                        request.getRazorpayOrderId(),
+                        request.getRazorpaySignature());
+            } else if (request.getRazorpaySubscriptionId() != null && !request.getRazorpaySubscriptionId().isBlank()) {
+                valid = razorpayService.verifyPaymentSignature(
+                        request.getRazorpayPaymentId(),
+                        request.getRazorpaySubscriptionId(),
+                        request.getRazorpaySignature());
+            }
             if (!valid) {
                 throw new RuntimeException("Invalid payment signature — possible tampered request");
             }
@@ -216,74 +254,100 @@ public class SubscriptionService {
         if (existingOpt.isPresent()) {
             Subscription existing = existingOpt.get();
 
-            if ("ACTIVE".equals(existing.getStatus())) {
-                // Pile-up: extend an already-active paid subscription (no new payment)
-                log.info("Extending ACTIVE subscription for org {}", request.getOrganizationId());
-                int monthsToAdd = (plan.getBillingMonths() != null && plan.getBillingMonths() > 0)
-                        ? plan.getBillingMonths() : 1;
-                existing.setPlan(plan);
-                existing.setCurrentCycleEnd(existing.getCurrentCycleEnd().plusMonths(monthsToAdd));
-                existing.setUpdatedAt(OffsetDateTime.now());
-                return convertToDTO(subscriptionRepository.save(existing));
+            // Cancel old subscription on Razorpay if it was an e-mandate subscription (legacy compatibility)
+            if (existing.getRazorpaySubscriptionId() != null && existing.getRazorpaySubscriptionId().startsWith("sub_")) {
+                log.info("Cancelling old Razorpay subscription mandate: {}", existing.getRazorpaySubscriptionId());
+                razorpayService.cancelRazorpaySubscription(existing.getRazorpaySubscriptionId(), false);
             }
 
-            // TRIAL / EXPIRED / CANCELLED / PAST_DUE:
-            // This is a ghost or lapsed record. Update it in-place with the new mandate
-            // so we don't violate the UNIQUE constraint on razorpay_subscription_id.
-            log.info("Resetting existing {} subscription for org {} with new mandate",
-                    existing.getStatus(), request.getOrganizationId());
-            int trialDays = plan.getTrialDays() != null ? plan.getTrialDays() : 7;
-            OffsetDateTime cycleStart = OffsetDateTime.now();
-            OffsetDateTime trialEnd   = cycleStart.plusDays(trialDays);
+            int trialDays = 0;
+
+            // Pile up the current validity!
+            OffsetDateTime existingEnd = existing.getCurrentCycleEnd();
+            OffsetDateTime cycleStart = (existingEnd != null && existingEnd.isAfter(OffsetDateTime.now()))
+                    ? existingEnd
+                    : OffsetDateTime.now();
+            OffsetDateTime trialEnd = null;
+            String newStatus = "ACTIVE";
 
             existing.setPlan(plan);
-            existing.setStatus("TRIAL");
-            existing.setRazorpaySubscriptionId(request.getRazorpaySubscriptionId());
+            existing.setStatus(newStatus);
+            
+            String transactionRef = request.getRazorpayOrderId() != null && !request.getRazorpayOrderId().isBlank()
+                    ? request.getRazorpayOrderId()
+                    : request.getRazorpaySubscriptionId();
+            existing.setRazorpaySubscriptionId(transactionRef);
+            
+            if (request.getRazorpayCustomerId() != null && !request.getRazorpayCustomerId().isBlank()) {
+                existing.setRazorpayCustomerId(request.getRazorpayCustomerId());
+            }
             existing.setMonthlyAmount(plan.getPrice());
             existing.setDiscountedAmount(plan.getDiscountedPrice());
             existing.setPaymentMethod(request.getPaymentMethod());
-            existing.setAutoRenewal(request.getAutoRenewal() != null ? request.getAutoRenewal() : true);
+            existing.setAutoRenewal(false); // No auto-renewal mandate
             existing.setRenewalAttempts(0);
             existing.setTrialEndDate(trialEnd);
-            existing.setCurrentCycleStart(cycleStart);
-            existing.setCurrentCycleEnd(trialEnd);
+            existing.setCurrentCycleStart(OffsetDateTime.now());
+            existing.setCurrentCycleEnd(cycleStart); // Temporarily cycleStart so recordPayment can advance it
             existing.setCancellationReason(null);
             existing.setCancelledAt(null);
             existing.setUpdatedAt(OffsetDateTime.now());
 
-            log.info("Subscription reset to TRIAL for org {}, trial ends {}", request.getOrganizationId(), trialEnd);
-            return convertToDTO(subscriptionRepository.save(existing));
+            log.info("Subscription updated for org {} with new mandate/order, status {}, trialDays {}, cycleStart starts from {}", 
+                    request.getOrganizationId(), newStatus, trialDays, cycleStart);
+
+            Subscription saved = subscriptionRepository.save(existing);
+
+            // If payment ID was returned, record initial payment immediately!
+            if (request.getRazorpayPaymentId() != null) {
+                log.info("Recording initial payment for upgrade/downgrade: {}", request.getRazorpayPaymentId());
+                recordPayment(saved.getId(), request.getRazorpayPaymentId(), plan.getDiscountedPrice());
+            }
+
+            return convertToDTO(subscriptionRepository.findById(saved.getId()).get());
         } else {
-            // New subscription with 7-day trial
-            int trialDays = plan.getTrialDays() != null ? plan.getTrialDays() : 7;
+            // New subscription
+            boolean paid = request.getRazorpayPaymentId() != null;
+            int trialDays = paid ? 0 : (plan.getTrialDays() != null ? plan.getTrialDays() : 7);
+            
             OffsetDateTime cycleStart = OffsetDateTime.now();
-            OffsetDateTime trialEnd = cycleStart.plusDays(trialDays);
+            OffsetDateTime trialEnd = trialDays > 0 ? cycleStart.plusDays(trialDays) : null;
+            String newStatus = trialDays > 0 ? "TRIAL" : "ACTIVE";
 
             Organization org = organizationRepository.findById(request.getOrganizationId())
                     .orElseThrow(() -> new RuntimeException("Organization not found: " + request.getOrganizationId()));
 
+            String transactionRef = request.getRazorpayOrderId() != null && !request.getRazorpayOrderId().isBlank()
+                    ? request.getRazorpayOrderId()
+                    : request.getRazorpaySubscriptionId();
+
             Subscription subscription = Subscription.builder()
                     .organization(org)
                     .plan(plan)
-                    .status("TRIAL")
+                    .status(newStatus)
                     .monthlyAmount(plan.getPrice())
                     .discountedAmount(plan.getDiscountedPrice())
-                    .razorpayCustomerId(request.getRazorpaySubscriptionId() != null
-                            ? null : null) // customerId not in confirm request; stored via initiate
-                    .razorpaySubscriptionId(request.getRazorpaySubscriptionId())
+                    .razorpayCustomerId(request.getRazorpayCustomerId())
+                    .razorpaySubscriptionId(transactionRef)
                     .paymentMethod(request.getPaymentMethod())
-                    .autoRenewal(request.getAutoRenewal() != null ? request.getAutoRenewal() : true)
+                    .autoRenewal(false) // No auto-renewal mandate
                     .renewalAttempts(0)
                     .trialEndDate(trialEnd)
                     .currentCycleStart(cycleStart)
-                    .currentCycleEnd(trialEnd)
+                    .currentCycleEnd(trialDays > 0 ? trialEnd : cycleStart) // Set temporarily so recordPayment can advance it
                     .createdAt(OffsetDateTime.now())
                     .updatedAt(OffsetDateTime.now())
                     .build();
 
             Subscription saved = subscriptionRepository.save(subscription);
-            log.info("New TRIAL subscription created for org {}, expires {}", request.getOrganizationId(), trialEnd);
-            return convertToDTO(saved);
+            log.info("New {} subscription created for org {}, expires {}", newStatus, request.getOrganizationId(), saved.getCurrentCycleEnd());
+
+            if (paid) {
+                log.info("Recording initial payment for new subscription: {}", request.getRazorpayPaymentId());
+                recordPayment(saved.getId(), request.getRazorpayPaymentId(), plan.getDiscountedPrice());
+            }
+
+            return convertToDTO(subscriptionRepository.findById(saved.getId()).get());
         }
     }
 
@@ -298,12 +362,17 @@ public class SubscriptionService {
     public void activateSubscription(Integer subscriptionId) {
         Subscription subscription = subscriptionRepository.findById(subscriptionId)
                 .orElseThrow(() -> new RuntimeException("Subscription not found: " + subscriptionId));
+        
+        int monthsToAdd = (subscription.getPlan().getBillingMonths() != null
+                && subscription.getPlan().getBillingMonths() > 0)
+                ? subscription.getPlan().getBillingMonths() : 1;
+
         subscription.setStatus("ACTIVE");
         subscription.setCurrentCycleStart(OffsetDateTime.now());
-        subscription.setCurrentCycleEnd(OffsetDateTime.now().plusMonths(1));
+        subscription.setCurrentCycleEnd(OffsetDateTime.now().plusMonths(monthsToAdd));
         subscription.setUpdatedAt(OffsetDateTime.now());
         subscriptionRepository.save(subscription);
-        log.info("Subscription {} activated", subscriptionId);
+        log.info("Subscription {} activated with {} month(s)", subscriptionId, monthsToAdd);
     }
 
     /**
@@ -363,6 +432,20 @@ public class SubscriptionService {
 
         log.info("Payment recorded for subscription: {}, advanced cycle by {} month(s)", subscriptionId, monthsToAdd);
         return convertPaymentToDTO(savedPayment);
+    }
+
+    /**
+     * Record a payment using Razorpay subscription ID (called from webhook).
+     */
+    @Transactional
+    public void recordPaymentByRazorpayId(String razorpaySubscriptionId, String paymentId, BigDecimal amount) {
+        subscriptionRepository.findByRazorpaySubscriptionId(razorpaySubscriptionId).ifPresentOrElse(sub -> {
+            log.info("Found subscription {} for Razorpay subscription ID {}. Recording payment.", sub.getId(), razorpaySubscriptionId);
+            recordPayment(sub.getId(), paymentId, amount);
+        }, () -> {
+            log.error("Subscription not found for Razorpay subscription ID: {}", razorpaySubscriptionId);
+            throw new RuntimeException("Subscription not found for Razorpay subscription ID: " + razorpaySubscriptionId);
+        });
     }
 
     /**

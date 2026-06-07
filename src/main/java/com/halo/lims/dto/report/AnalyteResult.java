@@ -14,10 +14,11 @@ public class AnalyteResult {
     private int pointCount;
     private String sparklineSvg;
     private String interpretation;
+    private String method;
 
     public AnalyteResult() {}
 
-    public AnalyteResult(String analyteName, String value, String unit, String referenceRange, String refLowDisplay, String refHighDisplay, String status, String statusClass, boolean abnormal, int markerPercent, int pointCount, String sparklineSvg, String interpretation) {
+    public AnalyteResult(String analyteName, String value, String unit, String referenceRange, String refLowDisplay, String refHighDisplay, String status, String statusClass, boolean abnormal, int markerPercent, int pointCount, String sparklineSvg, String interpretation, String method) {
         this.analyteName = analyteName;
         this.value = value;
         this.unit = unit;
@@ -31,6 +32,7 @@ public class AnalyteResult {
         this.pointCount = pointCount;
         this.sparklineSvg = sparklineSvg;
         this.interpretation = interpretation;
+        this.method = method;
     }
 
     public static AnalyteResultBuilder builder() {
@@ -77,6 +79,12 @@ public class AnalyteResult {
     public String getInterpretation() { return interpretation; }
     public void setInterpretation(String interpretation) { this.interpretation = interpretation; }
 
+    public String getMethod() { return method; }
+    public void setMethod(String method) { this.method = method; }
+
+    // Legacy method support
+    public String method() { return method; }
+
     public static class AnalyteResultBuilder {
         private String analyteName;
         private String value;
@@ -91,6 +99,7 @@ public class AnalyteResult {
         private int pointCount;
         private String sparklineSvg;
         private String interpretation;
+        private String method;
 
         public AnalyteResultBuilder analyteName(String analyteName) { this.analyteName = analyteName; return this; }
         public AnalyteResultBuilder value(String value) { this.value = value; return this; }
@@ -105,9 +114,10 @@ public class AnalyteResult {
         public AnalyteResultBuilder pointCount(int pointCount) { this.pointCount = pointCount; return this; }
         public AnalyteResultBuilder sparklineSvg(String sparklineSvg) { this.sparklineSvg = sparklineSvg; return this; }
         public AnalyteResultBuilder interpretation(String interpretation) { this.interpretation = interpretation; return this; }
+        public AnalyteResultBuilder method(String method) { this.method = method; return this; }
 
         public AnalyteResult build() {
-            return new AnalyteResult(analyteName, value, unit, referenceRange, refLowDisplay, refHighDisplay, status, statusClass, abnormal, markerPercent, pointCount, sparklineSvg, interpretation);
+            return new AnalyteResult(analyteName, value, unit, referenceRange, refLowDisplay, refHighDisplay, status, statusClass, abnormal, markerPercent, pointCount, sparklineSvg, interpretation, method);
         }
     }
 }

@@ -62,9 +62,15 @@ public class TestAnalyte {
     @Column(name = "updated_at", nullable = false)
     private OffsetDateTime updatedAt;
 
+    @Column(name = "method", length = 255)
+    private String method;
+
     // Getters and Setters
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
+
+    public String getMethod() { return method; }
+    public void setMethod(String method) { this.method = method; }
 
     public String getAnalyteCode() { return analyteCode; }
     public void setAnalyteCode(String analyteCode) { this.analyteCode = analyteCode; }

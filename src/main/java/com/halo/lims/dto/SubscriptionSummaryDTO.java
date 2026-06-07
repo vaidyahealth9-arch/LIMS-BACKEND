@@ -22,4 +22,5 @@ public class SubscriptionSummaryDTO {
     private Long daysUntilNextBilling;
     private String nextBillingDate;
     private String expiryDate;
+    private Boolean hasUsedTrial;
 }

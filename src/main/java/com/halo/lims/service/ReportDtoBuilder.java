@@ -229,33 +229,69 @@ public class ReportDtoBuilder {
 
     private AnalyteResult buildAnalyteResult(Observation obs, List<BigDecimal> history, Map<Integer, List<OrganizationAnalyteInterpretationRule>> rulesMap) {
         String analyteName = obs.getAnalyte() != null ? obs.getAnalyte().getAnalyteName() : "Unknown";
-        String value = obs.getValueString() != null ? obs.getValueString() : (obs.getValueNumeric() != null ? obs.getValueNumeric().toString() : "N/A");
+        
+        String value = "N/A";
+        if (obs.getValueString() != null) {
+            value = obs.getValueString();
+        } else if (obs.getValueNumeric() != null) {
+            BigDecimal numVal = obs.getValueNumeric();
+            int scale = 0;
+            boolean scaleFound = false;
+            if (obs.getReferenceRange() != null) {
+                BigDecimal low = obs.getReferenceRange().getLowValue();
+                BigDecimal high = obs.getReferenceRange().getHighValue();
+                if (low != null) {
+                    scale = Math.max(0, low.stripTrailingZeros().scale());
+                    scaleFound = true;
+                }
+                if (high != null) {
+                    int highScale = Math.max(0, high.stripTrailingZeros().scale());
+                    scale = scaleFound ? Math.max(scale, highScale) : highScale;
+                    scaleFound = true;
+                }
+            }
+            if (scaleFound) {
+                value = numVal.setScale(scale, java.math.RoundingMode.HALF_UP).toPlainString();
+            } else {
+                value = numVal.stripTrailingZeros().toPlainString();
+            }
+        }
+
         String unit = obs.getUnit() != null ? obs.getUnit().getName() : "";
         String status = obs.getInterpretationCode() != null ? obs.getInterpretationCode() : "Normal";
         boolean isAbnormal = !"N".equalsIgnoreCase(status) && !"Normal".equalsIgnoreCase(status);
         String statusClass = isAbnormal ? "status-abnormal" : "status-normal";
 
         int markerPercent = computeMarkerPercent(obs);
-        String refLowDisplay = obs.getReferenceRange() != null && obs.getReferenceRange().getLowValue() != null ? obs.getReferenceRange().getLowValue().toString() : "";
-        String refHighDisplay = obs.getReferenceRange() != null && obs.getReferenceRange().getHighValue() != null ? obs.getReferenceRange().getHighValue().toString() : "";
+        String refLowDisplay = obs.getReferenceRange() != null ? formatReferenceValue(obs.getReferenceRange().getLowValue()) : "";
+        String refHighDisplay = obs.getReferenceRange() != null ? formatReferenceValue(obs.getReferenceRange().getHighValue()) : "";
 
         BigDecimal refLow = obs.getReferenceRange() != null ? obs.getReferenceRange().getLowValue() : null;
         BigDecimal refHigh = obs.getReferenceRange() != null ? obs.getReferenceRange().getHighValue() : null;
         String sparklineSvg = imageService.buildSparklineSvg(history, 350, 60, refLow, refHigh);
 
-        // Evaluate Analyte-level rules
+        // Evaluate Analyte-level rules (only if abnormal to keep report clean)
         String interpretation = "";
-        if (obs.getAnalyte() != null) {
+        if (isAbnormal && obs.getAnalyte() != null) {
             List<OrganizationAnalyteInterpretationRule> rules = rulesMap != null ? rulesMap.getOrDefault(obs.getAnalyte().getId(), List.of()) : List.of();
-            interpretation = evaluateAnalyteRules(rules, obs);
+            interpretation = evaluateAnalyteRules(rules, obs, value);
+        }
+
+        String method = "";
+        if (obs.getAnalyte() != null) {
+            if (obs.getAnalyte().getMethod() != null && !obs.getAnalyte().getMethod().isEmpty()) {
+                method = obs.getAnalyte().getMethod();
+            } else if (obs.getAnalyte().getParentTest() != null) {
+                method = obs.getAnalyte().getParentTest().getMethod();
+            }
         }
 
         return new AnalyteResult(analyteName, value, unit, referenceRangeText(obs),
                 refLowDisplay, refHighDisplay, status, statusClass, isAbnormal,
-                markerPercent, history != null ? history.size() : 0, sparklineSvg, interpretation);
+                markerPercent, history != null ? history.size() : 0, sparklineSvg, interpretation, method);
     }
 
-    private String evaluateAnalyteRules(List<OrganizationAnalyteInterpretationRule> rules, Observation obs) {
+    private String evaluateAnalyteRules(List<OrganizationAnalyteInterpretationRule> rules, Observation obs, String formattedValue) {
         if (rules == null || rules.isEmpty()) return "";
         StandardEvaluationContext context = new StandardEvaluationContext();
         context.setVariable("val", obs.getValueNumeric());
@@ -271,7 +307,9 @@ public class ReportDtoBuilder {
                     } catch (Exception e) { return false; }
                 })
                 .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
-                .filter(Objects::nonNull).collect(Collectors.joining("; "));
+                .filter(Objects::nonNull)
+                .map(comment -> comment.replace("<result-value>", formattedValue).replace("<result value>", formattedValue))
+                .collect(Collectors.joining("; "));
     }
 
     private AnalyticsSummary buildAnalyticsSummary(List<TestGroup> testGroups, List<Observation> observations) {
@@ -399,43 +437,51 @@ public class ReportDtoBuilder {
     private String buildTestInterpretation(ServiceRequest serviceRequest, Test test,
                                            List<Observation> observations,
                                            Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap) {
-        if (test == null) return "";
-        List<OrganizationTestInterpretationRule> rules = testRulesMap.getOrDefault(test.getId(), List.of());
-        
-        if (!rules.isEmpty()) {
-            StandardEvaluationContext context = new StandardEvaluationContext();
-            // Map each analyte to its value for complex multi-analyte rules
-            for (Observation obs : observations) {
-                if (obs.getAnalyte() != null && obs.getAnalyte().getAnalyteName() != null) {
-                    String varName = obs.getAnalyte().getAnalyteName().replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
-                    if (!varName.isBlank()) {
-                        context.setVariable(varName, obs.getValueNumeric());
-                        context.setVariable(varName + "_status", obs.getInterpretationCode());
-                    }
-                }
-            }
-
-            String fromRules = rules.stream()
-                    .filter(rule -> {
-                        try {
-                            Expression exp = spelParser.parseExpression(rule.getConditionExpression());
-                            return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
-                        } catch (Exception e) { return false; }
-                    })
-                    .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
-                    .filter(Objects::nonNull).distinct()
-                    .collect(Collectors.joining("; "));
-            if (!fromRules.isBlank()) return fromRules;
-        }
-
-        LinkedHashSet<String> codes = observations.stream()
-                .map(Observation::getInterpretationCode)
-                .filter(Objects::nonNull).map(String::trim).filter(c -> !c.isBlank())
-                .map(this::mapInterpretationCodeToText)
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-        if (!codes.isEmpty()) return String.join("; ", codes);
-        return "No specific interpretation available. Correlate clinically.";
-    }
+         if (test == null) return "";
+         List<OrganizationTestInterpretationRule> rules = testRulesMap.getOrDefault(test.getId(), List.of());
+         
+         if (!rules.isEmpty()) {
+             StandardEvaluationContext context = new StandardEvaluationContext();
+             // Map each analyte to its value for complex multi-analyte rules
+             for (Observation obs : observations) {
+                 if (obs.getAnalyte() != null && obs.getAnalyte().getAnalyteName() != null) {
+                     String varName = obs.getAnalyte().getAnalyteName().replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
+                     if (!varName.isBlank()) {
+                         context.setVariable(varName, obs.getValueNumeric());
+                         context.setVariable(varName + "_status", obs.getInterpretationCode());
+                     }
+                 }
+             }
+ 
+             String fromRules = rules.stream()
+                     .filter(rule -> {
+                         try {
+                             Expression exp = spelParser.parseExpression(rule.getConditionExpression());
+                             return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
+                         } catch (Exception e) { return false; }
+                     })
+                     .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
+                     .filter(Objects::nonNull).distinct()
+                     .collect(Collectors.joining("; "));
+             if (!fromRules.isBlank()) return fromRules;
+         }
+ 
+         // For clean reports, only display status summary if there is at least one abnormal analyte
+         boolean hasAbnormal = observations.stream()
+                 .anyMatch(obs -> obs.getInterpretationCode() != null && !"N".equalsIgnoreCase(obs.getInterpretationCode()) && !"Normal".equalsIgnoreCase(obs.getInterpretationCode()));
+         
+         if (hasAbnormal) {
+             LinkedHashSet<String> codes = observations.stream()
+                     .map(Observation::getInterpretationCode)
+                     .filter(Objects::nonNull).map(String::trim).filter(c -> !c.isBlank())
+                     .filter(c -> !"N".equalsIgnoreCase(c) && !"Normal".equalsIgnoreCase(c))
+                     .map(this::mapInterpretationCodeToText)
+                     .collect(Collectors.toCollection(LinkedHashSet::new));
+             if (!codes.isEmpty()) return String.join("; ", codes);
+         }
+         
+         return ""; // Return empty string to completely hide interpretation box for fully normal panels
+     }
 
     private List<String> buildSmartInsights(List<TestGroup> testGroups, AnalyticsSummary analytics) {
         List<String> insights = new ArrayList<>();
@@ -567,11 +613,9 @@ public class ReportDtoBuilder {
         return (int) Math.min(98, Math.max(2, pct));
     }
 
-    private String observationValue(Observation obs) {
-        if (obs.getValueNumeric() != null) return obs.getValueNumeric().stripTrailingZeros().toPlainString();
-        if (obs.getValueString() != null) return obs.getValueString();
-        if (obs.getValueCode() != null) return obs.getValueCode();
-        return "N/A";
+    private String formatReferenceValue(BigDecimal val) {
+        if (val == null) return "";
+        return val.stripTrailingZeros().toPlainString();
     }
 
     private String referenceRangeText(Observation obs) {
@@ -580,9 +624,9 @@ public class ReportDtoBuilder {
         if (referenceRange.getTextRange() != null && !referenceRange.getTextRange().isBlank())
             return referenceRange.getTextRange();
         if (referenceRange.getLowValue() != null || referenceRange.getHighValue() != null) {
-            return Objects.toString(referenceRange.getLowValue(), "")
+            return formatReferenceValue(referenceRange.getLowValue())
                     + " - "
-                    + Objects.toString(referenceRange.getHighValue(), "");
+                    + formatReferenceValue(referenceRange.getHighValue());
         }
         return "";
     }

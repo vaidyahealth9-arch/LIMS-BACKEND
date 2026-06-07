@@ -16,4 +16,5 @@ public class CreateSubscriptionRequest {
     private String contactEmail;
     private String contactPhone;
     private String customerName;
+    private Boolean skipTrial;
 }

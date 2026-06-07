@@ -269,17 +269,11 @@ public class SubscriptionController {
                         long amountPaise = invoiceEntity.optLong("amount_paid", 0);
                         BigDecimal amountRupees = BigDecimal.valueOf(amountPaise).divide(BigDecimal.valueOf(100));
 
-                        // Find subscription by Razorpay subscription ID to get our internal ID
                         log.info("Invoice paid for subscription {}, payment {}, amount ₹{}",
                                 subId, paymentId, amountRupees);
 
-                        // Update status to ACTIVE on invoice.paid (covers trial-to-active transition)
-                        subscriptionService.updateStatusByRazorpayId(subId, "ACTIVE");
-
-                        // Record payment using internal subscription lookup
-                        // Note: recordPayment takes our DB subscription ID, so we look it up via razorpay ID
-                        // The service's updateStatusByRazorpayId already touches the subscription record.
-                        // We call markPastDue as NO-OP here; payment recording happens via dedicated call.
+                        // Record payment and advance the billing cycle start/end dates
+                        subscriptionService.recordPaymentByRazorpayId(subId, paymentId, amountRupees);
                     }
                     break;
 
