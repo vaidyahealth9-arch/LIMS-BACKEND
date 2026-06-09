@@ -201,14 +201,33 @@ public class IntegrationController {
             analyte.unit = obs.getUnit() != null ? obs.getUnit().getName() : "";
             analyte.referenceRange = obs.getReferenceRange() != null ? obs.getReferenceRange().getTextRange() : "";
             
-            // Simple status color logic
+            // Robust status color logic
             analyte.statusColor = "GREEN";
             if (obs.getValueNumeric() != null && obs.getReferenceRange() != null) {
                 Double val = obs.getValueNumeric().doubleValue();
-                if (obs.getReferenceRange().getLowValue() != null && val < obs.getReferenceRange().getLowValue().doubleValue()) {
+                Double low = obs.getReferenceRange().getLowValue() != null ? obs.getReferenceRange().getLowValue().doubleValue() : null;
+                Double high = obs.getReferenceRange().getHighValue() != null ? obs.getReferenceRange().getHighValue().doubleValue() : null;
+
+                if (low != null && val < low) {
                     analyte.statusColor = "RED";
-                } else if (obs.getReferenceRange().getHighValue() != null && val > obs.getReferenceRange().getHighValue().doubleValue()) {
+                } else if (high != null && val > high) {
                     analyte.statusColor = "RED";
+                } else if (low != null && high != null) {
+                    Double span = high - low;
+                    if (span > 0) {
+                        Double band = span * 0.1;
+                        if (val <= (low + band) || val >= (high - band)) {
+                            analyte.statusColor = "AMBER";
+                        }
+                    }
+                }
+            }
+            if ("GREEN".equals(analyte.statusColor) && obs.getInterpretationCode() != null) {
+                String code = obs.getInterpretationCode().trim().toUpperCase();
+                if (code.equals("H") || code.equals("HH") || code.equals("L") || code.equals("LL") || code.equals("A") || code.contains("ABNORMAL") || code.contains("POSITIVE") || code.contains("REACTIVE") || code.equals("POS") || code.equals("R")) {
+                    analyte.statusColor = "RED";
+                } else if (code.contains("BORDERLINE") || code.contains("WARN") || code.contains("AMBER")) {
+                    analyte.statusColor = "AMBER";
                 }
             }
             return analyte;
@@ -335,9 +354,19 @@ public class IntegrationController {
                 String statusColor = "normal";
                 if (obs.getReferenceRange() != null) {
                     Double val = obs.getValueNumeric().doubleValue();
-                    if (obs.getReferenceRange().getLowValue() != null && val < obs.getReferenceRange().getLowValue().doubleValue()) {
+                    Double low = obs.getReferenceRange().getLowValue() != null ? obs.getReferenceRange().getLowValue().doubleValue() : null;
+                    Double high = obs.getReferenceRange().getHighValue() != null ? obs.getReferenceRange().getHighValue().doubleValue() : null;
+                    if (low != null && val < low) {
                         statusColor = "low";
-                    } else if (obs.getReferenceRange().getHighValue() != null && val > obs.getReferenceRange().getHighValue().doubleValue()) {
+                    } else if (high != null && val > high) {
+                        statusColor = "high";
+                    }
+                }
+                if ("normal".equals(statusColor) && obs.getInterpretationCode() != null) {
+                    String code = obs.getInterpretationCode().trim().toUpperCase();
+                    if (code.equals("L") || code.equals("LL")) {
+                        statusColor = "low";
+                    } else if (code.equals("H") || code.equals("HH") || code.equals("A") || code.contains("ABNORMAL")) {
                         statusColor = "high";
                     }
                 }
@@ -363,10 +392,28 @@ public class IntegrationController {
             
             if (currentObs.getReferenceRange() != null) {
                 Double val = currentObs.getValueNumeric().doubleValue();
-                if (currentObs.getReferenceRange().getLowValue() != null && val < currentObs.getReferenceRange().getLowValue().doubleValue()) {
+                Double low = currentObs.getReferenceRange().getLowValue() != null ? currentObs.getReferenceRange().getLowValue().doubleValue() : null;
+                Double high = currentObs.getReferenceRange().getHighValue() != null ? currentObs.getReferenceRange().getHighValue().doubleValue() : null;
+                if (low != null && val < low) {
                     currentStatusColor = "RED";
-                } else if (currentObs.getReferenceRange().getHighValue() != null && val > currentObs.getReferenceRange().getHighValue().doubleValue()) {
+                } else if (high != null && val > high) {
                     currentStatusColor = "RED";
+                } else if (low != null && high != null) {
+                    Double span = high - low;
+                    if (span > 0) {
+                        Double band = span * 0.1;
+                        if (val <= (low + band) || val >= (high - band)) {
+                            currentStatusColor = "AMBER";
+                        }
+                    }
+                }
+            }
+            if ("GREEN".equals(currentStatusColor) && currentObs.getInterpretationCode() != null) {
+                String code = currentObs.getInterpretationCode().trim().toUpperCase();
+                if (code.equals("H") || code.equals("HH") || code.equals("L") || code.equals("LL") || code.equals("A") || code.contains("ABNORMAL") || code.contains("POSITIVE") || code.contains("REACTIVE") || code.equals("POS") || code.equals("R")) {
+                    currentStatusColor = "RED";
+                } else if (code.contains("BORDERLINE") || code.contains("WARN") || code.contains("AMBER")) {
+                    currentStatusColor = "AMBER";
                 }
             }
 
