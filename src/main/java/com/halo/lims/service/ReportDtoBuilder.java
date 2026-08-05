@@ -900,21 +900,14 @@ public class ReportDtoBuilder {
         if (valueVal == null) {
             return 50;
         }
-        BigDecimal[] bounds = getNumericBounds(obs);
-        if (bounds[0] == null && bounds[1] == null) {
-            return 50;
-        }
-        double low = bounds[0] != null ? bounds[0].doubleValue() : 0.0;
-        double val = valueVal.doubleValue();
-        if (bounds[1] == null) {
-            return val >= low ? 70 : 15;
-        }
-        double high = bounds[1].doubleValue();
+        double low = obs.getReferenceRange().getLowValue().doubleValue();
+        double high = obs.getReferenceRange().getHighValue().doubleValue();
+        double val = obs.getValueNumeric().doubleValue();
         double span = high - low;
         if (span <= 0) {
             return val > high ? 90 : (val < low ? 10 : 50);
         }
-        double pct = 30 + ((val - low) / span) * 40;
+        double pct = 20 + ((val - low) / span) * 60;
         return (int) Math.min(98, Math.max(2, pct));
     }
 

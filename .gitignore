@@ -75,3 +75,10 @@ logs/
 
 ### Local configuration (sensitive) ###
 src/main/resources/application-local.properties
+
+# Security ignore
+.env
+.env.*
+firebase-key.json
+*.key.json
+service-account*.json
