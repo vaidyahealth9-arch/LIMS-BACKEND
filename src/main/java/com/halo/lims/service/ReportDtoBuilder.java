@@ -605,11 +605,11 @@ public class ReportDtoBuilder {
         double low = obs.getReferenceRange().getLowValue().doubleValue();
         double high = obs.getReferenceRange().getHighValue().doubleValue();
         double val = obs.getValueNumeric().doubleValue();
-        double barMin = low * 0.5;
-        double barMax = high * 1.5;
-        double span = barMax - barMin;
-        if (span <= 0) return 50;
-        double pct = ((val - barMin) / span) * 100;
+        double span = high - low;
+        if (span <= 0) {
+            return val > high ? 90 : (val < low ? 10 : 50);
+        }
+        double pct = 20 + ((val - low) / span) * 60;
         return (int) Math.min(98, Math.max(2, pct));
     }
 
