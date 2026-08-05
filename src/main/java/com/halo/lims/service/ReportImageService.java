@@ -46,9 +46,9 @@ public class ReportImageService {
         if (values == null || values.isEmpty()) return "";
         if (values.size() == 1) {
             return String.format(
-                    "<svg width=\"%d\" height=\"%d\" xmlns=\"http://www.w3.org/2000/svg\">" +
+                    "<svg viewBox=\"0 0 %d %d\" width=\"100%%\" height=\"%d\" xmlns=\"http://www.w3.org/2000/svg\">" +
                             "<circle cx=\"%d\" cy=\"%d\" r=\"5\" fill=\"#2563eb\" stroke=\"#ffffff\" stroke-width=\"2\"/></svg>",
-                    w, h, w / 2, h / 2);
+                    w, h, h, w / 2, h / 2);
         }
 
         int padX = 4, padY = 8;
@@ -102,11 +102,11 @@ public class ReportImageService {
         }
 
         return String.format(
-                "<svg width=\"%d\" height=\"%d\" xmlns=\"http://www.w3.org/2000/svg\">" +
+                "<svg viewBox=\"0 0 %d %d\" width=\"100%%\" height=\"%d\" xmlns=\"http://www.w3.org/2000/svg\">" +
                         "<polygon points=\"%s\" fill=\"#93c5fd\" fill-opacity=\"0.28\"/>" +
                         "%s" +
                         "<polyline points=\"%s\" fill=\"none\" stroke=\"#2563eb\" stroke-width=\"2.5\" stroke-linejoin=\"round\"/>" +
                         "%s</svg>",
-                w, h, fillPts.toString(), refBands.toString(), pts.toString(), dots.toString());
+                w, h, h, fillPts.toString(), refBands.toString(), pts.toString(), dots.toString());
     }
 }

@@ -119,7 +119,8 @@ public class ReportService {
         DiagnosticReport report = diagnosticReportRepository.findByServiceRequest_Id(serviceRequestId).orElse(null);
         OffsetDateTime clinicalLastModified = getClinicalLastModified(serviceRequestId);
         
-        boolean isFresh = report != null 
+        boolean isFresh = !"development".equalsIgnoreCase(System.getenv("ENVIRONMENT"))
+                && report != null 
                 && report.getReportGcsUrl() != null 
                 && storedReferenceMatchesType(report.getReportGcsUrl(), normalizedReportType)
                 && report.getUpdatedAt() != null 

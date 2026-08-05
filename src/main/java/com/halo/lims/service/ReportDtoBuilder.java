@@ -48,6 +48,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.stream.Collectors;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 @Service
 public class ReportDtoBuilder {
@@ -79,12 +81,13 @@ public class ReportDtoBuilder {
 
     @Transactional(readOnly = true)
     public DiagnosticReportDTO buildReportDTO(Integer serviceRequestId, boolean withHeader,
-                                              String normalizedReportType,
-                                              ReportApprovalStatusResponse approvalStatus) {
+            String normalizedReportType,
+            ReportApprovalStatusResponse approvalStatus) {
         ServiceRequest serviceRequest = serviceRequestRepository.findById(serviceRequestId)
                 .orElseThrow(() -> new RuntimeException("Service Request not found: " + serviceRequestId));
 
-        // Eagerly load observations with references, unit, analyte, and specimen to avoid lazy loading issues
+        // Eagerly load observations with references, unit, analyte, and specimen to
+        // avoid lazy loading issues
         List<Observation> observations = observationRepository.findByServiceRequestIdWithReferences(serviceRequestId)
                 .stream().sorted(Comparator.comparing(Observation::getId)).toList();
 
@@ -112,7 +115,8 @@ public class ReportDtoBuilder {
                 List<OrganizationTestInterpretationRule> tRules = organizationTestInterpretationRuleRepository
                         .findByOrganizationTestOrganizationAndOrganizationTestTestIn(organization, tests);
                 testRulesMap = tRules.stream()
-                        .filter(rule -> rule.getOrganizationTest() != null && rule.getOrganizationTest().getTest() != null)
+                        .filter(rule -> rule.getOrganizationTest() != null
+                                && rule.getOrganizationTest().getTest() != null)
                         .collect(Collectors.groupingBy(rule -> rule.getOrganizationTest().getTest().getId()));
             }
             if (!analytes.isEmpty()) {
@@ -124,7 +128,8 @@ public class ReportDtoBuilder {
             }
         }
 
-        List<TestGroup> testGroups = buildTestGroups(serviceRequest, observations, historyMap, testRulesMap, analyteRulesMap);
+        List<TestGroup> testGroups = buildTestGroups(serviceRequest, observations, historyMap, testRulesMap,
+                analyteRulesMap);
         DoctorSignature signature = buildDoctorSignature(approvalStatus, observations);
 
         ReportApprovalService.ReportMetadata meta = reportApprovalService.buildReportMetadata(
@@ -135,8 +140,7 @@ public class ReportDtoBuilder {
                 imageService.buildQrImageUrl(meta.reportIntegrityQrContent()),
                 meta.accreditationScopeQrContent(),
                 meta.reportIntegrityQrContent(),
-                reportApprovalService.formatDateTime(OffsetDateTime.now())
-        );
+                reportApprovalService.formatDateTime(OffsetDateTime.now()));
 
         AnalyticsSummary analytics = null;
         List<LongitudinalTrend> trends = null;
@@ -148,21 +152,21 @@ public class ReportDtoBuilder {
         }
 
         String reportTitle = REPORT_TYPE_SMART.equals(normalizedReportType)
-                ? "Smart Diagnostic Report" : "Diagnostic Report";
+                ? "Smart Diagnostic Report"
+                : "Diagnostic Report";
 
         return new DiagnosticReportDTO(
                 normalizedReportType, reportTitle,
                 patientDetails, testGroups,
                 signature, analytics, trends,
-                insights, metadata, branding, withHeader
-        );
+                insights, metadata, branding, withHeader);
     }
 
     private Map<Integer, List<BigDecimal>> buildHistoryMap(List<Observation> observations,
-                                                           Integer serviceRequestId,
-                                                           Patient patient,
-                                                           Organization organization,
-                                                           String reportType) {
+            Integer serviceRequestId,
+            Patient patient,
+            Organization organization,
+            String reportType) {
         if (!REPORT_TYPE_SMART.equals(reportType) || patient == null || organization == null) {
             return Map.of();
         }
@@ -173,7 +177,8 @@ public class ReportDtoBuilder {
                 .distinct()
                 .toList();
 
-        if (analyteIds.isEmpty()) return Map.of();
+        if (analyteIds.isEmpty())
+            return Map.of();
 
         List<Observation> allHistory = observationRepository.findHistoricalByAnalyteIdsAndPatientAndOrganization(
                 analyteIds, patient.getId(), organization.getId(), serviceRequestId);
@@ -184,7 +189,8 @@ public class ReportDtoBuilder {
 
         Map<Integer, List<BigDecimal>> map = new HashMap<>();
         for (Observation obs : observations) {
-            if (obs.getAnalyte() == null || obs.getValueNumeric() == null) continue;
+            if (obs.getAnalyte() == null || obs.getValueNumeric() == null)
+                continue;
             int analyteId = obs.getAnalyte().getId();
 
             List<BigDecimal> values = histByAnalyte.getOrDefault(analyteId, List.of()).stream()
@@ -202,13 +208,14 @@ public class ReportDtoBuilder {
     }
 
     private List<TestGroup> buildTestGroups(ServiceRequest serviceRequest,
-                                            List<Observation> observations,
-                                            Map<Integer, List<BigDecimal>> historyMap,
-                                            Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap,
-                                            Map<Integer, List<OrganizationAnalyteInterpretationRule>> analyteRulesMap) {
+            List<Observation> observations,
+            Map<Integer, List<BigDecimal>> historyMap,
+            Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap,
+            Map<Integer, List<OrganizationAnalyteInterpretationRule>> analyteRulesMap) {
         Map<Test, List<Observation>> grouped = observations.stream()
                 .filter(obs -> obs.getAnalyte() != null && obs.getAnalyte().getParentTest() != null)
-                .collect(Collectors.groupingBy(obs -> obs.getAnalyte().getParentTest(), LinkedHashMap::new, Collectors.toList()));
+                .collect(Collectors.groupingBy(obs -> obs.getAnalyte().getParentTest(), LinkedHashMap::new,
+                        Collectors.toList()));
 
         List<TestGroup> groups = new ArrayList<>();
         for (Map.Entry<Test, List<Observation>> entry : grouped.entrySet()) {
@@ -216,7 +223,8 @@ public class ReportDtoBuilder {
             List<Observation> obsList = entry.getValue();
 
             List<AnalyteResult> analytes = obsList.stream()
-                    .map(obs -> buildAnalyteResult(obs, historyMap.getOrDefault(obs.getAnalyte().getId(), List.of()), analyteRulesMap))
+                    .map(obs -> buildAnalyteResult(obs, historyMap.getOrDefault(obs.getAnalyte().getId(), List.of()),
+                            analyteRulesMap))
                     .toList();
 
             boolean hasAbnormal = analytes.stream().anyMatch(AnalyteResult::isAbnormal);
@@ -227,9 +235,10 @@ public class ReportDtoBuilder {
         return groups;
     }
 
-    private AnalyteResult buildAnalyteResult(Observation obs, List<BigDecimal> history, Map<Integer, List<OrganizationAnalyteInterpretationRule>> rulesMap) {
+    private AnalyteResult buildAnalyteResult(Observation obs, List<BigDecimal> history,
+            Map<Integer, List<OrganizationAnalyteInterpretationRule>> rulesMap) {
         String analyteName = obs.getAnalyte() != null ? obs.getAnalyte().getAnalyteName() : "Unknown";
-        
+
         String value = "N/A";
         if (obs.getValueString() != null) {
             value = obs.getValueString();
@@ -262,18 +271,27 @@ public class ReportDtoBuilder {
         boolean isAbnormal = !"N".equalsIgnoreCase(status) && !"Normal".equalsIgnoreCase(status);
         String statusClass = isAbnormal ? "status-abnormal" : "status-normal";
 
+        BigDecimal[] bounds = getNumericBounds(obs);
         int markerPercent = computeMarkerPercent(obs);
-        String refLowDisplay = obs.getReferenceRange() != null ? formatReferenceValue(obs.getReferenceRange().getLowValue()) : "";
-        String refHighDisplay = obs.getReferenceRange() != null ? formatReferenceValue(obs.getReferenceRange().getHighValue()) : "";
+        String refLowDisplay = bounds[0] != null ? formatReferenceValue(bounds[0]) : "";
+        String refHighDisplay = bounds[1] != null ? formatReferenceValue(bounds[1]) : "";
 
-        BigDecimal refLow = obs.getReferenceRange() != null ? obs.getReferenceRange().getLowValue() : null;
-        BigDecimal refHigh = obs.getReferenceRange() != null ? obs.getReferenceRange().getHighValue() : null;
+        // Compute scale extremes: normal zone occupies 30%-70% of bar,
+        // so scaleMin = low - 0.75*span and scaleMax = high + 0.75*span
+        String[] scaleDisplay = computeScaleDisplayBounds(bounds);
+        String scaleMinDisplay = scaleDisplay[0];
+        String scaleMaxDisplay = scaleDisplay[1];
+
+        BigDecimal refLow = bounds[0];
+        BigDecimal refHigh = bounds[1];
         String sparklineSvg = imageService.buildSparklineSvg(history, 350, 60, refLow, refHigh);
 
         // Evaluate Analyte-level rules (only if abnormal to keep report clean)
         String interpretation = "";
         if (isAbnormal && obs.getAnalyte() != null) {
-            List<OrganizationAnalyteInterpretationRule> rules = rulesMap != null ? rulesMap.getOrDefault(obs.getAnalyte().getId(), List.of()) : List.of();
+            List<OrganizationAnalyteInterpretationRule> rules = rulesMap != null
+                    ? rulesMap.getOrDefault(obs.getAnalyte().getId(), List.of())
+                    : List.of();
             interpretation = evaluateAnalyteRules(rules, obs, value);
         }
 
@@ -287,12 +305,14 @@ public class ReportDtoBuilder {
         }
 
         return new AnalyteResult(analyteName, value, unit, referenceRangeText(obs),
-                refLowDisplay, refHighDisplay, status, statusClass, isAbnormal,
+                refLowDisplay, refHighDisplay, scaleMinDisplay, scaleMaxDisplay, status, statusClass, isAbnormal,
                 markerPercent, history != null ? history.size() : 0, sparklineSvg, interpretation, method);
     }
 
-    private String evaluateAnalyteRules(List<OrganizationAnalyteInterpretationRule> rules, Observation obs, String formattedValue) {
-        if (rules == null || rules.isEmpty()) return "";
+    private String evaluateAnalyteRules(List<OrganizationAnalyteInterpretationRule> rules, Observation obs,
+            String formattedValue) {
+        if (rules == null || rules.isEmpty())
+            return "";
         StandardEvaluationContext context = new StandardEvaluationContext();
         context.setVariable("val", obs.getValueNumeric());
         context.setVariable("text", obs.getValueString());
@@ -304,11 +324,14 @@ public class ReportDtoBuilder {
                     try {
                         Expression exp = spelParser.parseExpression(rule.getConditionExpression());
                         return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
-                    } catch (Exception e) { return false; }
+                    } catch (Exception e) {
+                        return false;
+                    }
                 })
                 .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
                 .filter(Objects::nonNull)
-                .map(comment -> comment.replace("<result-value>", formattedValue).replace("<result value>", formattedValue))
+                .map(comment -> comment.replace("<result-value>", formattedValue).replace("<result value>",
+                        formattedValue))
                 .collect(Collectors.joining("; "));
     }
 
@@ -324,7 +347,9 @@ public class ReportDtoBuilder {
                 .sorted(Comparator.comparingInt(TestGroup::analyteCount).reversed())
                 .limit(4)
                 .map(g -> {
-                    int pct = totalAnalytes > 0 ? (int) Math.max(6, Math.round((g.analyteCount() * 100.0) / totalAnalytes)) : 0;
+                    int pct = totalAnalytes > 0
+                            ? (int) Math.max(6, Math.round((g.analyteCount() * 100.0) / totalAnalytes))
+                            : 0;
                     int abn = (int) g.analytes().stream().filter(AnalyteResult::isAbnormal).count();
                     return new PanelVolume(g.testName(), g.analyteCount(), abn, pct);
                 })
@@ -376,15 +401,16 @@ public class ReportDtoBuilder {
     }
 
     private PatientDetails buildPatientDetails(Patient patient, ServiceRequest serviceRequest,
-                                               List<Observation> observations,
-                                               ReportApprovalStatusResponse approvalStatus) {
+            List<Observation> observations,
+            ReportApprovalStatusResponse approvalStatus) {
         String sampleId = observations.stream()
                 .map(Observation::getSpecimen).filter(Objects::nonNull)
                 .map(Specimen::getLocalSpecimenValue)
                 .filter(v -> v != null && !v.isBlank()).findFirst().orElse("N/A");
 
         String referringDoctor = "N/A";
-        if (serviceRequest.getEncounter() != null && serviceRequest.getEncounter().getReferenceDoctor() != null && !serviceRequest.getEncounter().getReferenceDoctor().isBlank()) {
+        if (serviceRequest.getEncounter() != null && serviceRequest.getEncounter().getReferenceDoctor() != null
+                && !serviceRequest.getEncounter().getReferenceDoctor().isBlank()) {
             referringDoctor = serviceRequest.getEncounter().getReferenceDoctor();
         } else if (serviceRequest.getRequester() != null) {
             referringDoctor = reportApprovalService.buildPractitionerDisplayName(serviceRequest.getRequester());
@@ -411,97 +437,113 @@ public class ReportDtoBuilder {
                 patient != null ? safe(patient.getLocalMrnValue()) : "N/A",
                 sampleId, referringDoctor,
                 reportApprovalService.formatDateTime(collectionDate), reportDate,
-                safe(serviceRequest.getLocalOrderValue()), sampleType
-        );
+                safe(serviceRequest.getLocalOrderValue()), sampleType);
     }
 
     private DoctorSignature buildDoctorSignature(ReportApprovalStatusResponse approvalStatus,
-                                                 List<Observation> observations) {
+            List<Observation> observations) {
         Practitioner practitioner = observations.stream()
                 .filter(obs -> obs.getPerformer() != null)
-                .max(Comparator.comparing(Observation::getIssuedDateTime, Comparator.nullsLast(Comparator.naturalOrder())))
+                .max(Comparator.comparing(Observation::getIssuedDateTime,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
                 .map(Observation::getPerformer).orElse(null);
 
         String qualification = (practitioner != null && practitioner.getMciRegNo() != null)
-                ? "Reg. No: " + practitioner.getMciRegNo() : "";
+                ? "Reg. No: " + practitioner.getMciRegNo()
+                : "";
         String approvedAt = approvalStatus.getApprovedAt() != null
-                ? reportApprovalService.formatDateTime(approvalStatus.getApprovedAt()) : "";
+                ? reportApprovalService.formatDateTime(approvalStatus.getApprovedAt())
+                : "";
 
         return new DoctorSignature(
                 safe(approvalStatus.getApprovedDoctorName()),
                 safe(approvalStatus.getApprovedDoctorSignatureImage()),
-                qualification, approvedAt
-        );
+                qualification, approvedAt);
     }
 
     private String buildTestInterpretation(ServiceRequest serviceRequest, Test test,
-                                           List<Observation> observations,
-                                           Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap) {
-         if (test == null) return "";
-         List<OrganizationTestInterpretationRule> rules = testRulesMap.getOrDefault(test.getId(), List.of());
-         
-         if (!rules.isEmpty()) {
-             StandardEvaluationContext context = new StandardEvaluationContext();
-             // Map each analyte to its value for complex multi-analyte rules
-             for (Observation obs : observations) {
-                 if (obs.getAnalyte() != null && obs.getAnalyte().getAnalyteName() != null) {
-                     String varName = obs.getAnalyte().getAnalyteName().replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
-                     if (!varName.isBlank()) {
-                         context.setVariable(varName, obs.getValueNumeric());
-                         context.setVariable(varName + "_status", obs.getInterpretationCode());
-                     }
-                 }
-             }
- 
-             String fromRules = rules.stream()
-                     .filter(rule -> {
-                         try {
-                             Expression exp = spelParser.parseExpression(rule.getConditionExpression());
-                             return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
-                         } catch (Exception e) { return false; }
-                     })
-                     .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
-                     .filter(Objects::nonNull).distinct()
-                     .collect(Collectors.joining("; "));
-             if (!fromRules.isBlank()) return fromRules;
-         }
- 
-         // For clean reports, only display status summary if there is at least one abnormal analyte
-         boolean hasAbnormal = observations.stream()
-                 .anyMatch(obs -> obs.getInterpretationCode() != null && !"N".equalsIgnoreCase(obs.getInterpretationCode()) && !"Normal".equalsIgnoreCase(obs.getInterpretationCode()));
-         
-         if (hasAbnormal) {
-             LinkedHashSet<String> codes = observations.stream()
-                     .map(Observation::getInterpretationCode)
-                     .filter(Objects::nonNull).map(String::trim).filter(c -> !c.isBlank())
-                     .filter(c -> !"N".equalsIgnoreCase(c) && !"Normal".equalsIgnoreCase(c))
-                     .map(this::mapInterpretationCodeToText)
-                     .collect(Collectors.toCollection(LinkedHashSet::new));
-             if (!codes.isEmpty()) return String.join("; ", codes);
-         }
-         
-         return ""; // Return empty string to completely hide interpretation box for fully normal panels
-     }
+            List<Observation> observations,
+            Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap) {
+        if (test == null)
+            return "";
+        List<OrganizationTestInterpretationRule> rules = testRulesMap.getOrDefault(test.getId(), List.of());
+
+        if (!rules.isEmpty()) {
+            StandardEvaluationContext context = new StandardEvaluationContext();
+            // Map each analyte to its value for complex multi-analyte rules
+            for (Observation obs : observations) {
+                if (obs.getAnalyte() != null && obs.getAnalyte().getAnalyteName() != null) {
+                    String varName = obs.getAnalyte().getAnalyteName().replaceAll("[^a-zA-Z0-9]", "_").toLowerCase();
+                    if (!varName.isBlank()) {
+                        context.setVariable(varName, obs.getValueNumeric());
+                        context.setVariable(varName + "_status", obs.getInterpretationCode());
+                    }
+                }
+            }
+
+            String fromRules = rules.stream()
+                    .filter(rule -> {
+                        try {
+                            Expression exp = spelParser.parseExpression(rule.getConditionExpression());
+                            return Boolean.TRUE.equals(exp.getValue(context, Boolean.class));
+                        } catch (Exception e) {
+                            return false;
+                        }
+                    })
+                    .map(rule -> rule.getAutoComment() != null ? rule.getAutoComment() : rule.getClassification())
+                    .filter(Objects::nonNull).distinct()
+                    .collect(Collectors.joining("; "));
+            if (!fromRules.isBlank())
+                return fromRules;
+        }
+
+        // For clean reports, only display status summary if there is at least one
+        // abnormal analyte
+        boolean hasAbnormal = observations.stream()
+                .anyMatch(
+                        obs -> obs.getInterpretationCode() != null && !"N".equalsIgnoreCase(obs.getInterpretationCode())
+                                && !"Normal".equalsIgnoreCase(obs.getInterpretationCode()));
+
+        if (hasAbnormal) {
+            LinkedHashSet<String> codes = observations.stream()
+                    .map(Observation::getInterpretationCode)
+                    .filter(Objects::nonNull).map(String::trim).filter(c -> !c.isBlank())
+                    .filter(c -> !"N".equalsIgnoreCase(c) && !"Normal".equalsIgnoreCase(c))
+                    .map(this::mapInterpretationCodeToText)
+                    .collect(Collectors.toCollection(LinkedHashSet::new));
+            if (!codes.isEmpty())
+                return String.join("; ", codes);
+        }
+
+        return ""; // Return empty string to completely hide interpretation box for fully normal
+                   // panels
+    }
 
     private List<String> buildSmartInsights(List<TestGroup> testGroups, AnalyticsSummary analytics) {
         List<String> insights = new ArrayList<>();
         if (analytics != null && analytics.getAbnormalCount() > 0) {
-            insights.add("CRITICAL: " + analytics.getAbnormalCount() + " abnormal markers detected across " + testGroups.size() + " test panels.");
+            insights.add("CRITICAL: " + analytics.getAbnormalCount() + " abnormal markers detected across "
+                    + testGroups.size() + " test panels.");
             insights.add("CORRELATION: Clinical correlation with physical symptoms and medical history is advised.");
-            
+
             // Add specific categorical recommendations (Hybrid Level 3)
-            boolean hasHighCholesterol = testGroups.stream().anyMatch(g -> g.getTestName() != null && g.getTestName().toLowerCase().contains("lipid") && g.isHasAbnormalResults());
+            boolean hasHighCholesterol = testGroups.stream().anyMatch(g -> g.getTestName() != null
+                    && g.getTestName().toLowerCase().contains("lipid") && g.isHasAbnormalResults());
             if (hasHighCholesterol) {
-                insights.add("RECOMMENDATION: Low-fat diet and regular cardiovascular exercise are recommended for lipid management.");
+                insights.add(
+                        "RECOMMENDATION: Low-fat diet and regular cardiovascular exercise are recommended for lipid management.");
             }
-            
-            boolean hasLiverIssue = testGroups.stream().anyMatch(g -> g.getTestName() != null && g.getTestName().toLowerCase().contains("liver") && g.isHasAbnormalResults());
+
+            boolean hasLiverIssue = testGroups.stream().anyMatch(g -> g.getTestName() != null
+                    && g.getTestName().toLowerCase().contains("liver") && g.isHasAbnormalResults());
             if (hasLiverIssue) {
-                insights.add("RECOMMENDATION: Avoid hepatotoxic substances (e.g., alcohol, certain medications) and monitor liver enzyme trends.");
+                insights.add(
+                        "RECOMMENDATION: Avoid hepatotoxic substances (e.g., alcohol, certain medications) and monitor liver enzyme trends.");
             }
         } else {
             insights.add("All tested parameters are within physiological reference ranges.");
-            insights.add("Maintaining a balanced diet and regular health check-ups is recommended for continued wellness.");
+            insights.add(
+                    "Maintaining a balanced diet and regular health check-ups is recommended for continued wellness.");
         }
         return insights;
     }
@@ -522,84 +564,340 @@ public class ReportDtoBuilder {
         return "status-abnormal".equals(buildSmartStatusClass(obs));
     }
 
+    BigDecimal[] getNumericBounds(Observation obs) {
+        BigDecimal low = null;
+        BigDecimal high = null;
+
+        if (obs.getReferenceRange() != null) {
+            low = obs.getReferenceRange().getLowValue();
+            high = obs.getReferenceRange().getHighValue();
+        }
+
+
+        // Try to parse from text range
+        String textRange = null;
+        if (obs.getReferenceRange() != null) {
+            textRange = obs.getReferenceRange().getTextRange();
+        }
+        if ((textRange == null || textRange.isBlank()) && obs.getAnalyte() != null) {
+            textRange = obs.getAnalyte().getBiologicalRefInterval();
+        }
+
+        if (textRange != null && !textRange.isBlank()) {
+            try {
+                // Demographic details
+                String gender = (obs.getPatient() != null) ? obs.getPatient().getGender() : null;
+                LocalDate dob = (obs.getPatient() != null) ? obs.getPatient().getDateOfBirth() : null;
+
+                // Split parts by |, ;, or newlines, or commas
+                String[] splitParts = textRange.split("[|;\\n,]");
+                List<String> parts = new ArrayList<>();
+                for (String part : splitParts) {
+                    if (!part.isBlank()) {
+                        parts.add(part.trim());
+                    }
+                }
+
+                // Demographic filtering
+                List<String> specificMatched = new ArrayList<>();
+                List<String> generalMatched = new ArrayList<>();
+                boolean hasSpecificParts = false;
+                
+                for (String part : parts) {
+                    boolean genderMatch = matchesGender(part, gender);
+                    boolean ageMatch = matchesAge(part, dob);
+                    
+                    String partLower = part.toLowerCase();
+                    boolean isSpecific = partLower.matches(".*\\b(f|male|males|men|man|female|females|women|woman|yr|year|age|d|m|y|month|day|week)s?\\b.*");
+                    if (isSpecific) {
+                        hasSpecificParts = true;
+                    }
+                    if (genderMatch && ageMatch) {
+                        if (isSpecific) {
+                            specificMatched.add(part);
+                        } else {
+                            generalMatched.add(part);
+                        }
+                    }
+                }
+
+                if (!specificMatched.isEmpty()) {
+                    parts = specificMatched;
+                } else if (!generalMatched.isEmpty()) {
+                    parts = generalMatched;
+                } else if (hasSpecificParts) {
+                    // Patient is demographic-specific but didn't match any of the specific parts
+                    // Return database defaults.
+                    return new BigDecimal[]{low, high};
+                }
+
+                // Parse each part
+                List<BigDecimal[]> normalRanges = new ArrayList<>();
+                List<BigDecimal> lowBounds = new ArrayList<>();
+                List<BigDecimal> highBounds = new ArrayList<>();
+
+                for (String part : parts) {
+                    String cond = "";
+                    String label = "";
+                    
+                    int colonIdx = part.indexOf(':');
+                    if (colonIdx != -1) {
+                        String left = part.substring(0, colonIdx).trim();
+                        String right = part.substring(colonIdx + 1).trim();
+                        
+                        boolean leftDemographic = left.toLowerCase().matches(".*\\b(f|male|males|men|man|female|females|women|woman|d|m|y|yr|year|month|day|week)s?\\b.*");
+                        boolean rightDemographic = right.toLowerCase().matches(".*\\b(f|male|males|men|man|female|females|women|woman|d|m|y|yr|year|month|day|week)s?\\b.*");
+                        
+                        if (leftDemographic && !rightDemographic) {
+                            cond = right;
+                            label = left;
+                        } else if (rightDemographic && !leftDemographic) {
+                            cond = left;
+                            label = right;
+                        } else {
+                            boolean leftHasNumericOrOp = left.matches(".*(?:<|>|≤|≥|=|\\bto\\b|[0-9]).*");
+                            boolean rightHasNumericOrOp = right.matches(".*(?:<|>|≤|≥|=|\\bto\\b|[0-9]).*");
+                            if (leftHasNumericOrOp && !rightHasNumericOrOp) {
+                                cond = left;
+                                label = right;
+                            } else {
+                                cond = right;
+                                label = left;
+                            }
+                        }
+                    } else {
+                        Matcher mRange = Pattern.compile("([0-9.]+)\\s*(?:-|–|—|to)\\s*([0-9.]+)").matcher(part);
+                        Matcher mLimit = Pattern.compile("(?:<|>|≤|≥|<=|>=|upto|up\\s+to)\\s*([0-9.]+)").matcher(part);
+                        if (mRange.find()) {
+                            cond = mRange.group();
+                            label = part.replace(cond, "").trim();
+                        } else if (mLimit.find()) {
+                            cond = mLimit.group();
+                            label = part.replace(cond, "").trim();
+                        } else {
+                            cond = "";
+                            label = part;
+                        }
+                    }
+
+                    cond = cond.trim();
+                    label = label.trim();
+                    String code = mapLabelToInterpretationCode(label);
+
+                    BigDecimal partLow = null;
+                    BigDecimal partHigh = null;
+                    boolean parsed = false;
+
+                    // 1. Check for standard range: "10 - 20"
+                    Matcher mRange = Pattern.compile("([0-9.]+)\\s*(?:-|–|—|to)\\s*([0-9.]+)").matcher(cond);
+                    if (mRange.find()) {
+                        partLow = new BigDecimal(mRange.group(1));
+                        partHigh = new BigDecimal(mRange.group(2));
+                        parsed = true;
+                    }
+                    
+                    // 2. Check for less than: "< 40", "upto 35"
+                    if (!parsed) {
+                        Matcher mLess = Pattern.compile("(?:<|≤|<=|upto|up\\s+to)\\s*([0-9.]+)").matcher(cond.toLowerCase());
+                        if (mLess.find()) {
+                            partLow = BigDecimal.ZERO;
+                            partHigh = new BigDecimal(mLess.group(1));
+                            parsed = true;
+                        }
+                    }
+
+                    // 3. Check for greater than: "> 60"
+                    if (!parsed) {
+                        Matcher mGreater = Pattern.compile("(?:>|≥|>=)\\s*([0-9.]+)").matcher(cond);
+                        if (mGreater.find()) {
+                            partLow = new BigDecimal(mGreater.group(1));
+                            partHigh = null;
+                            parsed = true;
+                        }
+                    }
+
+                    // 4. Special check for "Control- 11.5" anywhere in the part
+                    if (!parsed) {
+                        Matcher mControl = Pattern.compile("control[- ]*([0-9.]+)", Pattern.CASE_INSENSITIVE).matcher(part);
+                        if (mControl.find()) {
+                            partLow = BigDecimal.ZERO;
+                            partHigh = new BigDecimal(mControl.group(1));
+                            parsed = true;
+                        }
+                    }
+
+                    if (parsed) {
+                        if ("N".equals(code)) {
+                            normalRanges.add(new BigDecimal[]{partLow, partHigh});
+                        } else if ("L".equals(code)) {
+                            if (partLow != null) lowBounds.add(partLow);
+                            if (partHigh != null) lowBounds.add(partHigh);
+                        } else if ("H".equals(code)) {
+                            if (partLow != null) highBounds.add(partLow);
+                            if (partHigh != null) highBounds.add(partHigh);
+                        }
+                    }
+                }
+
+                BigDecimal parsedLow = null;
+                BigDecimal parsedHigh = null;
+
+                if (!normalRanges.isEmpty()) {
+                    boolean hasNullLow = false;
+                    boolean hasNullHigh = false;
+                    for (BigDecimal[] range : normalRanges) {
+                        if (range[0] == null) hasNullLow = true;
+                        if (range[1] == null) hasNullHigh = true;
+                    }
+                    
+                    for (BigDecimal[] range : normalRanges) {
+                        if (!hasNullLow && range[0] != null) {
+                            if (parsedLow == null || range[0].compareTo(parsedLow) < 0) {
+                                parsedLow = range[0];
+                            }
+                        }
+                        if (!hasNullHigh && range[1] != null) {
+                            if (parsedHigh == null || range[1].compareTo(parsedHigh) > 0) {
+                                parsedHigh = range[1];
+                            }
+                        }
+                    }
+                    if (hasNullLow) parsedLow = null;
+                    if (hasNullHigh) parsedHigh = null;
+                } else {
+                    // No normal ranges, use L and H bounds
+                    if (!lowBounds.isEmpty()) {
+                        for (BigDecimal lb : lowBounds) {
+                            if (parsedLow == null || lb.compareTo(parsedLow) > 0) {
+                                parsedLow = lb;
+                            }
+                        }
+                    }
+                    if (!highBounds.isEmpty()) {
+                        for (BigDecimal hb : highBounds) {
+                            if (parsedHigh == null || hb.compareTo(parsedHigh) < 0) {
+                                parsedHigh = hb;
+                            }
+                        }
+                    }
+                }
+
+                if (parsedLow != null || parsedHigh != null) {
+                    return new BigDecimal[]{parsedLow, parsedHigh};
+                }
+            } catch (Exception e) {
+                e.printStackTrace();
+            }
+        }
+
+        return new BigDecimal[]{low, high};
+    }
+
+    BigDecimal getNumericValue(Observation obs) {
+        if (obs.getValueNumeric() != null) {
+            return obs.getValueNumeric();
+        }
+        if (obs.getValueString() != null && !obs.getValueString().isBlank()) {
+            try {
+                Matcher m = Pattern.compile("([0-9]+(?:\\.[0-9]+)?)").matcher(obs.getValueString());
+                if (m.find()) {
+                    return new BigDecimal(m.group(1));
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+        return null;
+    }
+
     private boolean isCriticalObservation(Observation obs) {
         String code = safe(obs.getInterpretationCode()).toUpperCase(Locale.ENGLISH);
-        if ("HH".equals(code) || "LL".equals(code)) return true;
-        if (obs.getValueNumeric() != null && obs.getReferenceRange() != null) {
-            BigDecimal value = obs.getValueNumeric();
-            BigDecimal low = obs.getReferenceRange().getLowValue();
-            BigDecimal high = obs.getReferenceRange().getHighValue();
-            if (low != null && value.compareTo(low.multiply(BigDecimal.valueOf(0.8))) < 0) return true;
-            if (high != null && value.compareTo(high.multiply(BigDecimal.valueOf(1.2))) > 0) return true;
+        if ("HH".equals(code) || "LL".equals(code))
+            return true;
+        BigDecimal[] bounds = getNumericBounds(obs);
+        BigDecimal low = bounds[0];
+        BigDecimal high = bounds[1];
+        BigDecimal value = getNumericValue(obs);
+        if (value != null && (low != null || high != null)) {
+            if (low != null && value.compareTo(low.multiply(BigDecimal.valueOf(0.8))) < 0)
+                return true;
+            if (high != null && value.compareTo(high.multiply(BigDecimal.valueOf(1.2))) > 0)
+                return true;
         }
         return false;
     }
 
     private String buildSmartStatusLabel(Observation obs) {
-        if (isCriticalObservation(obs)) return "Critical";
-        if (isValueOutOfRange(obs)) return "Abnormal";
+        if (isCriticalObservation(obs))
+            return "Critical";
+        if (isValueOutOfRange(obs))
+            return "Abnormal";
         String code = safe(obs.getInterpretationCode()).trim().toUpperCase(Locale.ENGLISH);
         if ("H".equals(code) || "HH".equals(code) || "L".equals(code) || "LL".equals(code) || "A".equals(code))
             return "Abnormal";
-        if (obs.getValueNumeric() != null && obs.getReferenceRange() != null) {
-            BigDecimal value = obs.getValueNumeric();
-            BigDecimal low = obs.getReferenceRange().getLowValue();
-            BigDecimal high = obs.getReferenceRange().getHighValue();
-            if (low != null && high != null) {
-                BigDecimal span = high.subtract(low);
-                if (span.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal band = span.multiply(BigDecimal.valueOf(0.1));
-                    if (value.compareTo(low.add(band)) <= 0 || value.compareTo(high.subtract(band)) >= 0)
-                        return "Borderline";
-                }
+        BigDecimal[] bounds = getNumericBounds(obs);
+        BigDecimal low = bounds[0];
+        BigDecimal high = bounds[1];
+        BigDecimal value = getNumericValue(obs);
+        if (value != null && low != null && high != null) {
+            BigDecimal span = high.subtract(low);
+            if (span.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal band = span.multiply(BigDecimal.valueOf(0.1));
+                if (value.compareTo(low.add(band)) <= 0 || value.compareTo(high.subtract(band)) >= 0)
+                    return "Borderline";
             }
         }
         return "Normal";
     }
 
     private String buildSmartStatusClass(Observation obs) {
-        if (isCriticalObservation(obs) || isValueOutOfRange(obs)) return "status-abnormal";
+        if (isCriticalObservation(obs) || isValueOutOfRange(obs))
+            return "status-abnormal";
         String code = safe(obs.getInterpretationCode()).trim().toUpperCase(Locale.ENGLISH);
         if ("H".equals(code) || "HH".equals(code) || "L".equals(code) || "LL".equals(code) || "A".equals(code))
             return "status-abnormal";
-        if ("N".equals(code)) return "status-normal";
-        if (obs.getValueNumeric() != null && obs.getReferenceRange() != null) {
-            BigDecimal value = obs.getValueNumeric();
-            BigDecimal low = obs.getReferenceRange().getLowValue();
-            BigDecimal high = obs.getReferenceRange().getHighValue();
-            if (low != null && high != null) {
-                BigDecimal span = high.subtract(low);
-                if (span.compareTo(BigDecimal.ZERO) > 0) {
-                    BigDecimal band = span.multiply(BigDecimal.valueOf(0.1));
-                    if (value.compareTo(low.add(band)) <= 0 || value.compareTo(high.subtract(band)) >= 0)
-                        return "status-borderline";
-                }
+        if ("N".equals(code))
+            return "status-normal";
+        BigDecimal[] bounds = getNumericBounds(obs);
+        BigDecimal low = bounds[0];
+        BigDecimal high = bounds[1];
+        BigDecimal value = getNumericValue(obs);
+        if (value != null && low != null && high != null) {
+            BigDecimal span = high.subtract(low);
+            if (span.compareTo(BigDecimal.ZERO) > 0) {
+                BigDecimal band = span.multiply(BigDecimal.valueOf(0.1));
+                if (value.compareTo(low.add(band)) <= 0 || value.compareTo(high.subtract(band)) >= 0)
+                    return "status-borderline";
             }
         }
         return isValueInRange(obs) ? "status-normal" : "";
     }
 
     private boolean isValueOutOfRange(Observation obs) {
-        if (obs.getValueNumeric() == null || obs.getReferenceRange() == null) return false;
-        BigDecimal value = obs.getValueNumeric();
-        BigDecimal low = obs.getReferenceRange().getLowValue();
-        BigDecimal high = obs.getReferenceRange().getHighValue();
+        BigDecimal value = getNumericValue(obs);
+        if (value == null)
+            return false;
+        BigDecimal[] bounds = getNumericBounds(obs);
+        BigDecimal low = bounds[0];
+        BigDecimal high = bounds[1];
         return (low != null && value.compareTo(low) < 0) || (high != null && value.compareTo(high) > 0);
     }
 
     private boolean isValueInRange(Observation obs) {
-        if (obs.getValueNumeric() == null || obs.getReferenceRange() == null) return false;
-        BigDecimal value = obs.getValueNumeric();
-        BigDecimal low = obs.getReferenceRange().getLowValue();
-        BigDecimal high = obs.getReferenceRange().getHighValue();
-        if (low == null && high == null) return false;
+        BigDecimal value = getNumericValue(obs);
+        if (value == null)
+            return false;
+        BigDecimal[] bounds = getNumericBounds(obs);
+        BigDecimal low = bounds[0];
+        BigDecimal high = bounds[1];
+        if (low == null && high == null)
+            return false;
         return (low == null || value.compareTo(low) >= 0) && (high == null || value.compareTo(high) <= 0);
     }
 
-    private int computeMarkerPercent(Observation obs) {
-        if (obs.getValueNumeric() == null || obs.getReferenceRange() == null
-                || obs.getReferenceRange().getLowValue() == null
-                || obs.getReferenceRange().getHighValue() == null) {
+    int computeMarkerPercent(Observation obs) {
+        BigDecimal valueVal = getNumericValue(obs);
+        if (valueVal == null) {
             return 50;
         }
         double low = obs.getReferenceRange().getLowValue().doubleValue();
@@ -613,14 +911,53 @@ public class ReportDtoBuilder {
         return (int) Math.min(98, Math.max(2, pct));
     }
 
+    /**
+     * Computes the display labels for the leftmost and rightmost tick of the reference bar.
+     * The bar maps the normal zone to 30%-70% of its width:
+     *   markerPct = 30 + ((val - low) / span) * 40
+     * So 0% of the bar = low - 0.75*span  (scaleMin)
+     *    100% of the bar = high + 0.75*span (scaleMax)
+     * Returns [scaleMinDisplay, scaleMaxDisplay]. Falls back to refLow/refHigh when span is unknown.
+     */
+    String[] computeScaleDisplayBounds(BigDecimal[] bounds) {
+        BigDecimal low = bounds[0];
+        BigDecimal high = bounds[1];
+        if (low == null && high == null) {
+            return new String[]{"", ""};
+        }
+        if (low == null) {
+            // Only high known; show something left of it
+            return new String[]{"", formatReferenceValue(high)};
+        }
+        if (high == null) {
+            // Only low known
+            return new String[]{formatReferenceValue(low), ""};
+        }
+        BigDecimal span = high.subtract(low);
+        if (span.compareTo(BigDecimal.ZERO) <= 0) {
+            return new String[]{formatReferenceValue(low), formatReferenceValue(high)};
+        }
+        // scale extremes: low - 0.75*span  and  high + 0.75*span
+        BigDecimal buffer = span.multiply(new BigDecimal("0.75"));
+        BigDecimal scaleMin = low.subtract(buffer);
+        BigDecimal scaleMax = high.add(buffer);
+        // Don't show negative scale min if low >= 0
+        if (low.compareTo(BigDecimal.ZERO) >= 0 && scaleMin.compareTo(BigDecimal.ZERO) < 0) {
+            scaleMin = BigDecimal.ZERO;
+        }
+        return new String[]{formatReferenceValue(scaleMin), formatReferenceValue(scaleMax)};
+    }
+
     private String formatReferenceValue(BigDecimal val) {
-        if (val == null) return "";
+        if (val == null)
+            return "";
         return val.stripTrailingZeros().toPlainString();
     }
 
     private String referenceRangeText(Observation obs) {
         ReferenceRange referenceRange = obs.getReferenceRange();
-        if (referenceRange == null) return "";
+        if (referenceRange == null)
+            return "";
         if (referenceRange.getTextRange() != null && !referenceRange.getTextRange().isBlank())
             return referenceRange.getTextRange();
         if (referenceRange.getLowValue() != null || referenceRange.getHighValue() != null) {
@@ -636,7 +973,8 @@ public class ReportDtoBuilder {
     }
 
     private String computeAge(LocalDate dob) {
-        if (dob == null) return "N/A";
+        if (dob == null)
+            return "N/A";
         Period period = Period.between(dob, LocalDate.now());
         if (period.getYears() == 0) {
             return period.getMonths() + " months";
@@ -646,5 +984,119 @@ public class ReportDtoBuilder {
 
     private String safe(String value) {
         return value == null ? "" : value;
+    }
+
+    private boolean matchesGender(String text, String patientGender) {
+        if (patientGender == null) return true;
+        String clean = text.toLowerCase();
+        boolean mentionsMale = clean.matches(".*\\b(m|male|males|men|man)\\b.*");
+        boolean mentionsFemale = clean.matches(".*\\b(f|female|females|women|woman)\\b.*");
+        
+        if ("male".equalsIgnoreCase(patientGender)) {
+            if (mentionsFemale && !mentionsMale) {
+                return false;
+            }
+            if (mentionsMale && !mentionsFemale) {
+                return true;
+            }
+        } else if ("female".equalsIgnoreCase(patientGender)) {
+            if (mentionsMale && !mentionsFemale) {
+                return false;
+            }
+            if (mentionsFemale && !mentionsMale) {
+                return true;
+            }
+        }
+        return true;
+    }
+
+    private boolean matchesAge(String text, LocalDate dob) {
+        if (dob == null) return true;
+        
+        long ageDays = java.time.temporal.ChronoUnit.DAYS.between(dob, java.time.LocalDate.now());
+        String clean = text.toLowerCase().trim();
+        
+        // 1. Check age range pattern
+        Matcher mRange = Pattern.compile("(\\d+(?:\\.\\d+)?)\\s*([a-zA-Z]*)\\s*(?:-|–|—|to)\\s*(\\d+(?:\\.\\d+)?)\\s*\\b(d|w|m|y|yr|year|month|day|week)s?\\b", Pattern.CASE_INSENSITIVE).matcher(clean);
+        if (mRange.find()) {
+            double val1 = Double.parseDouble(mRange.group(1));
+            String unit1 = mRange.group(2).trim();
+            double val2 = Double.parseDouble(mRange.group(3));
+            String unit2 = mRange.group(4).trim();
+            if (unit1.isEmpty()) {
+                unit1 = unit2;
+            }
+            double days1 = convertToDays(val1, unit1);
+            double days2 = convertToDays(val2, unit2);
+            return ageDays >= days1 && ageDays <= days2;
+        }
+        
+        // 2. Check less than pattern
+        Matcher mLess = Pattern.compile("(?:<|≤|<=|under|less\\s+than)\\s*(\\d+(?:\\.\\d+)?)\\s*\\b(d|w|m|y|yr|year|month|day|week)s?\\b", Pattern.CASE_INSENSITIVE).matcher(clean);
+        if (mLess.find()) {
+            double val = Double.parseDouble(mLess.group(1));
+            String unit = mLess.group(2);
+            double limitDays = convertToDays(val, unit);
+            return ageDays < limitDays;
+        }
+        
+        // 3. Check greater than pattern
+        Matcher mGreater = Pattern.compile("(?:>|≥|>=|over|above|greater\\s+than)\\s*(\\d+(?:\\.\\d+)?)\\s*\\b(d|w|m|y|yr|year|month|day|week)s?\\b", Pattern.CASE_INSENSITIVE).matcher(clean);
+        if (mGreater.find()) {
+            double val = Double.parseDouble(mGreater.group(1));
+            String unit = mGreater.group(2);
+            double limitDays = convertToDays(val, unit);
+            return ageDays > limitDays;
+        }
+        
+        return true;
+    }
+
+    private double convertToDays(double value, String unit) {
+        if (unit == null || unit.isEmpty()) {
+            return value * 365.25;
+        }
+        String u = unit.toLowerCase().trim();
+        if (u.startsWith("d")) {
+            return value;
+        } else if (u.startsWith("w")) {
+            return value * 7.0;
+        } else if (u.startsWith("m")) {
+            return value * 30.4375;
+        } else if (u.startsWith("y")) {
+            return value * 365.25;
+        } else if (u.startsWith("a")) { // "age"
+            return value * 365.25;
+        }
+        return value * 365.25;
+    }
+
+    private String mapLabelToInterpretationCode(String label) {
+        if (label == null) return "N";
+        String clean = label.trim().toLowerCase();
+        
+        if (clean.contains("normal") || clean.contains("negative") || clean.contains("absent") ||
+            clean.contains("non-reactive") || clean.contains("non reactive") || clean.contains("nil") ||
+            clean.contains("sufficiency") || clean.contains("sufficient") || clean.contains("desirable") ||
+            clean.contains("optimal") || clean.contains("non-diabetic") || clean.contains("non-smokers") ||
+            clean.contains("control") || clean.contains("clear")) {
+            return "N";
+        }
+        
+        if (clean.contains("deficiency") || clean.contains("insufficiency") || clean.contains("low") ||
+            clean.contains("decreased") || clean.contains("below")) {
+            return "L";
+        }
+        
+        if (clean.contains("positive") || clean.contains("reactive") || clean.contains("present") ||
+            clean.contains("abnormal") || clean.contains("toxicity") || clean.contains("high") ||
+            clean.contains("significant") || clean.contains("diabetic") || clean.contains("diabetes") ||
+            clean.contains("smokers") || clean.contains("elevated") || clean.contains("above") ||
+            clean.contains("indeterminate") || clean.contains("equivocal") || clean.contains("borderline") ||
+            clean.contains("impaired") || clean.contains("pre-diabetic") || clean.contains("very high")) {
+            return "H";
+        }
+        
+        return "N";
     }
 }

@@ -7,6 +7,8 @@ public class AnalyteResult {
     private String referenceRange;
     private String refLowDisplay;
     private String refHighDisplay;
+    private String scaleMinDisplay;
+    private String scaleMaxDisplay;
     private String status;
     private String statusClass;
     private boolean abnormal;
@@ -18,13 +20,15 @@ public class AnalyteResult {
 
     public AnalyteResult() {}
 
-    public AnalyteResult(String analyteName, String value, String unit, String referenceRange, String refLowDisplay, String refHighDisplay, String status, String statusClass, boolean abnormal, int markerPercent, int pointCount, String sparklineSvg, String interpretation, String method) {
+    public AnalyteResult(String analyteName, String value, String unit, String referenceRange, String refLowDisplay, String refHighDisplay, String scaleMinDisplay, String scaleMaxDisplay, String status, String statusClass, boolean abnormal, int markerPercent, int pointCount, String sparklineSvg, String interpretation, String method) {
         this.analyteName = analyteName;
         this.value = value;
         this.unit = unit;
         this.referenceRange = referenceRange;
         this.refLowDisplay = refLowDisplay;
         this.refHighDisplay = refHighDisplay;
+        this.scaleMinDisplay = scaleMinDisplay;
+        this.scaleMaxDisplay = scaleMaxDisplay;
         this.status = status;
         this.statusClass = statusClass;
         this.abnormal = abnormal;
@@ -57,6 +61,12 @@ public class AnalyteResult {
 
     public String getRefHighDisplay() { return refHighDisplay; }
     public void setRefHighDisplay(String refHighDisplay) { this.refHighDisplay = refHighDisplay; }
+
+    public String getScaleMinDisplay() { return scaleMinDisplay; }
+    public void setScaleMinDisplay(String scaleMinDisplay) { this.scaleMinDisplay = scaleMinDisplay; }
+
+    public String getScaleMaxDisplay() { return scaleMaxDisplay; }
+    public void setScaleMaxDisplay(String scaleMaxDisplay) { this.scaleMaxDisplay = scaleMaxDisplay; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
@@ -92,6 +102,8 @@ public class AnalyteResult {
         private String referenceRange;
         private String refLowDisplay;
         private String refHighDisplay;
+        private String scaleMinDisplay;
+        private String scaleMaxDisplay;
         private String status;
         private String statusClass;
         private boolean abnormal;
@@ -107,6 +119,8 @@ public class AnalyteResult {
         public AnalyteResultBuilder referenceRange(String referenceRange) { this.referenceRange = referenceRange; return this; }
         public AnalyteResultBuilder refLowDisplay(String refLowDisplay) { this.refLowDisplay = refLowDisplay; return this; }
         public AnalyteResultBuilder refHighDisplay(String refHighDisplay) { this.refHighDisplay = refHighDisplay; return this; }
+        public AnalyteResultBuilder scaleMinDisplay(String scaleMinDisplay) { this.scaleMinDisplay = scaleMinDisplay; return this; }
+        public AnalyteResultBuilder scaleMaxDisplay(String scaleMaxDisplay) { this.scaleMaxDisplay = scaleMaxDisplay; return this; }
         public AnalyteResultBuilder status(String status) { this.status = status; return this; }
         public AnalyteResultBuilder statusClass(String statusClass) { this.statusClass = statusClass; return this; }
         public AnalyteResultBuilder abnormal(boolean abnormal) { this.abnormal = abnormal; return this; }
@@ -117,7 +131,7 @@ public class AnalyteResult {
         public AnalyteResultBuilder method(String method) { this.method = method; return this; }
 
         public AnalyteResult build() {
-            return new AnalyteResult(analyteName, value, unit, referenceRange, refLowDisplay, refHighDisplay, status, statusClass, abnormal, markerPercent, pointCount, sparklineSvg, interpretation, method);
+            return new AnalyteResult(analyteName, value, unit, referenceRange, refLowDisplay, refHighDisplay, scaleMinDisplay, scaleMaxDisplay, status, statusClass, abnormal, markerPercent, pointCount, sparklineSvg, interpretation, method);
         }
     }
 }

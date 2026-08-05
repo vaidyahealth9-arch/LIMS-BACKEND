@@ -285,18 +285,25 @@ public class IntegrationController {
     @GetMapping("/bills")
     public ResponseEntity<List<BillIntegrationDto>> getBills(
             HttpServletRequest request,
-            @RequestParam String mobile
+            @RequestParam String mobile,
+            @RequestParam(required = false) String patientName
     ) {
         internalRequestAuthService.authorizeIntegrationCall(request, mobile);
 
         List<Patient> patients = findPatientsByMobile(mobile);
+        if (patientName != null && !patientName.trim().isEmpty()) {
+            final String targetName = patientName.toLowerCase().trim();
+            patients = patients.stream()
+                    .filter(p -> (p.getFirstName() + " " + p.getLastName()).toLowerCase().trim().equals(targetName))
+                    .collect(Collectors.toList());
+        }
         if (patients.isEmpty()) {
             return ResponseEntity.ok(new ArrayList<>());
         }
 
         List<BillIntegrationDto> response = new ArrayList<>();
         for (Patient patient : patients) {
-            String patientName = (patient.getFirstName() + " " + patient.getLastName()).trim();
+            String pName = (patient.getFirstName() + " " + patient.getLastName()).trim();
             List<Bill> bills = billRepository.findByPatient(patient);
             for (Bill bill : bills) {
                 BillIntegrationDto dto = new BillIntegrationDto();
@@ -310,7 +317,7 @@ public class IntegrationController {
                 dto.discountAmount = bill.getDiscountAmount();
                 dto.paymentMethod = bill.getPaymentMethod();
                 dto.invoiceDate = bill.getInvoiceDate() != null ? bill.getInvoiceDate().toString() : "";
-                dto.patientName = patientName;
+                dto.patientName = pName;
                 response.add(dto);
             }
         }
@@ -320,11 +327,18 @@ public class IntegrationController {
     @GetMapping("/analyte-history")
     public ResponseEntity<Map<String, Object>> getAnalyteHistory(
             HttpServletRequest request,
-            @RequestParam String mobile
+            @RequestParam String mobile,
+            @RequestParam(required = false) String patientName
     ) {
         internalRequestAuthService.authorizeIntegrationCall(request, mobile);
 
         List<Patient> patients = findPatientsByMobile(mobile);
+        if (patientName != null && !patientName.trim().isEmpty()) {
+            final String targetName = patientName.toLowerCase().trim();
+            patients = patients.stream()
+                    .filter(p -> (p.getFirstName() + " " + p.getLastName()).toLowerCase().trim().equals(targetName))
+                    .collect(Collectors.toList());
+        }
         if (patients.isEmpty()) {
             return ResponseEntity.ok(Map.of("tests", new ArrayList<>()));
         }
