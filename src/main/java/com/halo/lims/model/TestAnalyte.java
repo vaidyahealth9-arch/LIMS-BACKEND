@@ -8,6 +8,8 @@ import org.hibernate.annotations.CreationTimestamp;
 import org.hibernate.annotations.UpdateTimestamp;
 
 import java.time.OffsetDateTime;
+import com.halo.lims.model.Organization;
+
 
 @Entity
 @Table(name = "test_analytes")
@@ -18,6 +20,10 @@ public class TestAnalyte {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Integer id;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "organization_id")
+    private Organization organization;
 
     @Column(name = "analyte_code", unique = true, nullable = false, length = 100)
     private String analyteCode;
@@ -68,6 +74,9 @@ public class TestAnalyte {
     // Getters and Setters
     public Integer getId() { return id; }
     public void setId(Integer id) { this.id = id; }
+
+    public Organization getOrganization() { return organization; }
+    public void setOrganization(Organization organization) { this.organization = organization; }
 
     public String getMethod() { return method; }
     public void setMethod(String method) { this.method = method; }

@@ -169,9 +169,18 @@ public class UserService {
             user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         }
         if (request.getRoles() != null && !request.getRoles().isEmpty()) {
+            if (user.getRoles() != null && user.getRoles().contains("ADMIN")) {
+                Set<String> newRoles = normalizeAndValidateRoles(request.getRoles());
+                if (!newRoles.contains("ADMIN")) {
+                    throw new IllegalArgumentException("Admin role cannot be removed from admin users.");
+                }
+            }
             user.setRoles(normalizeAndValidateRoles(request.getRoles()));
         }
         if (request.getIsActive() != null) {
+            if (!request.getIsActive() && user.getRoles() != null && user.getRoles().contains("ADMIN")) {
+                throw new IllegalArgumentException("Admin users cannot be deactivated.");
+            }
             user.setIsActive(request.getIsActive());
         }
 
@@ -224,6 +233,9 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
         assertAccessToUser(user);
+        if (!isActive && user.getRoles() != null && user.getRoles().contains("ADMIN")) {
+            throw new IllegalArgumentException("Admin users cannot be deactivated.");
+        }
         user.setIsActive(isActive);
         User updatedUser = userRepository.save(user);
         return mapToUserResponse(updatedUser);
@@ -238,6 +250,9 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found with ID: " + userId));
         assertAccessToUser(user);
+        if (user.getRoles() != null && user.getRoles().contains("ADMIN")) {
+            throw new IllegalArgumentException("Admin users cannot be deleted.");
+        }
         try {
             userRepository.deleteById(userId);
             userRepository.flush();

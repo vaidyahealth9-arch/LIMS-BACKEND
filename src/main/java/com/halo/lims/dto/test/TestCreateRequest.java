@@ -4,6 +4,8 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
 
 public class TestCreateRequest {
+    private Integer organizationId;
+
     @NotBlank(message = "Test name is required")
     @Size(max = 255)
     private String testName;
@@ -38,6 +40,9 @@ public class TestCreateRequest {
     public TestCreateRequest() {}
 
     // Getters and Setters
+    public Integer getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Integer organizationId) { this.organizationId = organizationId; }
+
     public String getTestName() { return testName; }
     public void setTestName(String testName) { this.testName = testName; }
 

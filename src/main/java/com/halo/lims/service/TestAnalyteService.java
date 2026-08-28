@@ -15,17 +15,22 @@ import org.springframework.transaction.annotation.Transactional;
 import java.util.List;
 import java.util.stream.Collectors;
 
+import com.halo.lims.model.Organization;
+import com.halo.lims.repository.OrganizationRepository;
+
 @Service
 public class TestAnalyteService {
 
     private final TestAnalyteRepository testAnalyteRepository;
     private final TestRepository testRepository;
     private final UnitRepository unitRepository;
+    private final OrganizationRepository organizationRepository;
 
-    public TestAnalyteService(TestAnalyteRepository testAnalyteRepository, TestRepository testRepository, UnitRepository unitRepository) {
+    public TestAnalyteService(TestAnalyteRepository testAnalyteRepository, TestRepository testRepository, UnitRepository unitRepository, OrganizationRepository organizationRepository) {
         this.testAnalyteRepository = testAnalyteRepository;
         this.testRepository = testRepository;
         this.unitRepository = unitRepository;
+        this.organizationRepository = organizationRepository;
     }
 
     @Transactional
@@ -43,7 +48,14 @@ public class TestAnalyteService {
                     .orElseThrow(() -> new RuntimeException("Unit not found with ID: " + request.getUnitId()));
         }
 
+        Organization org = null;
+        if (request.getOrganizationId() != null) {
+            org = organizationRepository.findById(request.getOrganizationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Organization not found with ID: " + request.getOrganizationId()));
+        }
+
         TestAnalyte testAnalyte = TestAnalyte.builder()
+                .organization(org)
                 .analyteCode(request.getAnalyteCode())
                 .analyteName(request.getAnalyteName())
                 .parentTest(parentTest)
@@ -134,6 +146,9 @@ public class TestAnalyteService {
         response.setBiologicalRefInterval(testAnalyte.getBiologicalRefInterval());
         response.setIsDerived(testAnalyte.getIsDerived());
         response.setFormula(testAnalyte.getFormula());
+        if (testAnalyte.getOrganization() != null) {
+            response.setOrganizationId(testAnalyte.getOrganization().getId());
+        }
         response.setCreatedAt(testAnalyte.getCreatedAt());
         response.setUpdatedAt(testAnalyte.getUpdatedAt());
         return response;

@@ -5,11 +5,13 @@ import com.halo.lims.dto.organization.test.OrganizationTestResponse;
 import com.halo.lims.model.Organization;
 import com.halo.lims.model.OrganizationTest;
 import com.halo.lims.model.OrganizationTestAnalyte;
+import com.halo.lims.model.SpecimenType;
 import com.halo.lims.model.Test;
 import com.halo.lims.model.TestAnalyte;
 import com.halo.lims.repository.OrganizationRepository;
 import com.halo.lims.repository.OrganizationTestAnalyteRepository;
 import com.halo.lims.repository.OrganizationTestRepository;
+import com.halo.lims.repository.SpecimenTypeRepository;
 import com.halo.lims.repository.TestAnalyteRepository;
 import com.halo.lims.repository.TestRepository;
 import com.halo.lims.security.SecurityService;
@@ -26,20 +28,23 @@ public class OrganizationTestService {
     private final OrganizationTestRepository organizationTestRepository;
     private final OrganizationRepository organizationRepository;
     private final TestRepository testRepository;
-    private final SecurityService securityService; // Inject for internal authorization
+    private final SpecimenTypeRepository specimenTypeRepository;
+    private final SecurityService securityService;
 
     public OrganizationTestService(OrganizationTestRepository organizationTestRepository,
                                    OrganizationRepository organizationRepository,
                                    TestRepository testRepository,
+                                   SpecimenTypeRepository specimenTypeRepository,
                                    SecurityService securityService) {
         this.organizationTestRepository = organizationTestRepository;
         this.organizationRepository = organizationRepository;
         this.testRepository = testRepository;
+        this.specimenTypeRepository = specimenTypeRepository;
         this.securityService = securityService;
     }
 
     /**
-     * Adds a test to an organization's catalog or updates its enablement/price.
+     * Adds a test to an organization's catalog or updates its enablement/price/specimen.
      * @param organizationId The ID of the organization.
      * @param request The DTO containing test ID, enabled status, and price.
      * @return The updated/created OrganizationTestResponse.
@@ -53,6 +58,15 @@ public class OrganizationTestService {
         OrganizationTest organizationTest = getOrCreateOrganizationTest(organizationId, request.getTestId());
         organizationTest.setIsEnabled(request.getIsEnabled());
         organizationTest.setPrice(request.getPrice());
+        organizationTest.setDefaultNumberOfSpecimens(request.getDefaultNumberOfSpecimens());
+
+        if (request.getSpecimenTypeId() != null) {
+            SpecimenType specimenType = specimenTypeRepository.findById(request.getSpecimenTypeId())
+                    .orElseThrow(() -> new RuntimeException("Specimen type not found with ID: " + request.getSpecimenTypeId()));
+            organizationTest.setSpecimenType(specimenType);
+        } else {
+            organizationTest.setSpecimenType(null);
+        }
 
         OrganizationTest savedOrgTest = organizationTestRepository.save(organizationTest);
         return mapToOrganizationTestResponse(savedOrgTest);
@@ -161,6 +175,11 @@ public class OrganizationTestService {
         response.setTestName(organizationTest.getTest().getTestName());
         response.setIsEnabled(organizationTest.getIsEnabled());
         response.setPrice(organizationTest.getPrice());
+        response.setDefaultNumberOfSpecimens(organizationTest.getDefaultNumberOfSpecimens());
+        if (organizationTest.getSpecimenType() != null) {
+            response.setSpecimenTypeId(organizationTest.getSpecimenType().getId());
+            response.setSpecimenTypeName(organizationTest.getSpecimenType().getName());
+        }
         response.setCreatedAt(organizationTest.getCreatedAt());
         response.setUpdatedAt(organizationTest.getUpdatedAt());
         return response;

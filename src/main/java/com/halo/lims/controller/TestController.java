@@ -12,14 +12,19 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import com.halo.lims.security.SecurityService;
+import com.halo.lims.model.User;
+
 @RestController
 @RequestMapping("/api/tests")
 public class TestController {
 
     private final TestService testService;
+    private final SecurityService securityService;
 
-    public TestController(TestService testService) {
+    public TestController(TestService testService, SecurityService securityService) {
         this.testService = testService;
+        this.securityService = securityService;
     }
 
     /**
@@ -29,8 +34,12 @@ public class TestController {
      * @return The created TestResponse.
      */
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<TestResponse> createTest(@Valid @RequestBody TestCreateRequest request) {
+        User user = securityService.getAuthenticatedUser();
+        if (!user.getRoles().contains("ADMIN")) {
+            request.setOrganizationId(user.getOrganization().getId());
+        }
         TestResponse response = testService.createTest(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
@@ -43,8 +52,9 @@ public class TestController {
      * @return The updated TestResponse.
      */
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<TestResponse> updateTest(@PathVariable Integer id, @Valid @RequestBody TestUpdateRequest request) {
+        // TODO: TestService.updateTest needs to verify organization ownership if user is not ADMIN
         TestResponse response = testService.updateTest(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

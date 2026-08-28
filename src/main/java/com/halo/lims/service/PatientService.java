@@ -214,6 +214,15 @@ public class PatientService {
         return Optional.of(mapToPatientRegistrationResponse(patient));
     }
 
+    @Transactional(readOnly = true)
+    public Optional<PatientRegistrationResponse> findPatientByAccessCodeAndMobile(String code, String mobile) {
+        if (code == null || code.isBlank() || mobile == null || mobile.isBlank()) {
+            return Optional.empty();
+        }
+        return phrInternalClient.fetchPatientProfileByAccessCode(code, mobile);
+    }
+
+
     // Backwards-compatible overload used by tests and older callers
     @Transactional(readOnly = true)
     public Optional<PatientRegistrationResponse> findPatientByMobile(String mobile) {

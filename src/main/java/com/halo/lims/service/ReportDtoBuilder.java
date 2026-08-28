@@ -94,7 +94,7 @@ public class ReportDtoBuilder {
         Patient patient = serviceRequest.getPatient();
         Organization organization = patient != null ? patient.getOrganization() : null;
 
-        Map<Integer, List<BigDecimal>> historyMap = buildHistoryMap(
+        Map<Integer, List<Observation>> historyMap = buildHistoryMap(
                 observations, serviceRequestId, patient, organization, normalizedReportType);
 
         BrandingDTO branding = buildBrandingDTO(organization, withHeader);
@@ -162,7 +162,7 @@ public class ReportDtoBuilder {
                 insights, metadata, branding, withHeader);
     }
 
-    private Map<Integer, List<BigDecimal>> buildHistoryMap(List<Observation> observations,
+    private Map<Integer, List<Observation>> buildHistoryMap(List<Observation> observations,
             Integer serviceRequestId,
             Patient patient,
             Organization organization,
@@ -187,21 +187,20 @@ public class ReportDtoBuilder {
                 .filter(obs -> obs.getAnalyte() != null)
                 .collect(Collectors.groupingBy(obs -> obs.getAnalyte().getId()));
 
-        Map<Integer, List<BigDecimal>> map = new HashMap<>();
+        Map<Integer, List<Observation>> map = new HashMap<>();
         for (Observation obs : observations) {
             if (obs.getAnalyte() == null || obs.getValueNumeric() == null)
                 continue;
             int analyteId = obs.getAnalyte().getId();
 
-            List<BigDecimal> values = histByAnalyte.getOrDefault(analyteId, List.of()).stream()
+            List<Observation> values = histByAnalyte.getOrDefault(analyteId, List.of()).stream()
                     .sorted(Comparator.comparing(Observation::getEffectiveDateTime,
                             Comparator.nullsLast(Comparator.reverseOrder())))
                     .limit(10)
                     .sorted(Comparator.comparing(Observation::getEffectiveDateTime,
                             Comparator.nullsLast(Comparator.naturalOrder())))
-                    .map(Observation::getValueNumeric)
                     .collect(Collectors.toCollection(ArrayList::new));
-            values.add(obs.getValueNumeric());
+            values.add(obs);
             map.put(analyteId, values);
         }
         return map;
@@ -209,7 +208,7 @@ public class ReportDtoBuilder {
 
     private List<TestGroup> buildTestGroups(ServiceRequest serviceRequest,
             List<Observation> observations,
-            Map<Integer, List<BigDecimal>> historyMap,
+            Map<Integer, List<Observation>> historyMap,
             Map<Integer, List<OrganizationTestInterpretationRule>> testRulesMap,
             Map<Integer, List<OrganizationAnalyteInterpretationRule>> analyteRulesMap) {
         Map<Test, List<Observation>> grouped = observations.stream()
@@ -235,7 +234,7 @@ public class ReportDtoBuilder {
         return groups;
     }
 
-    private AnalyteResult buildAnalyteResult(Observation obs, List<BigDecimal> history,
+    private AnalyteResult buildAnalyteResult(Observation obs, List<Observation> history,
             Map<Integer, List<OrganizationAnalyteInterpretationRule>> rulesMap) {
         String analyteName = obs.getAnalyte() != null ? obs.getAnalyte().getAnalyteName() : "Unknown";
 
@@ -284,7 +283,7 @@ public class ReportDtoBuilder {
 
         BigDecimal refLow = bounds[0];
         BigDecimal refHigh = bounds[1];
-        String sparklineSvg = imageService.buildSparklineSvg(history, 350, 60, refLow, refHigh);
+        String sparklineSvg = imageService.buildSparklineSvgWithTimestamps(history, 350, 80, refLow, refHigh);
 
         // Evaluate Analyte-level rules (only if abnormal to keep report clean)
         String interpretation = "";

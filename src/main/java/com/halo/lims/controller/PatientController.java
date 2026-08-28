@@ -65,13 +65,35 @@ public class PatientController {
     @GetMapping("/phr-lookup")
     @PreAuthorize("hasAnyRole('ADMIN', 'RECEPTIONIST', 'DOCTOR', 'TECHNICIAN')")
     public ResponseEntity<PatientRegistrationResponse> lookupPatientFromPhr(
-            @RequestParam String mobile,
-            @RequestParam(required = false) String relationship) {
+            @RequestParam(required = false) String mobile,
+            @RequestParam(required = false) String relationship,
+            @RequestParam(required = false) String accessCode) {
+        
+        if (accessCode != null && !accessCode.isBlank()) {
+            if (mobile == null || mobile.isBlank()) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Mobile number is required along with the access code.");
+            }
+            return patientService.findPatientByAccessCodeAndMobile(accessCode, mobile)
+                    .map(ResponseEntity::ok)
+                    .orElseThrow(() -> new ResponseStatusException(
+                            HttpStatus.NOT_FOUND,
+                            "Access code or mobile number is invalid, expired, or already used. Please generate a new code in the PHR app."));
+        }
+        
+        if (mobile == null || mobile.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Mobile number is required");
+        }
+
         return patientService.findPatientByMobile(mobile, relationship)
                 .map(ResponseEntity::ok)
                 .orElseThrow(() -> new ResponseStatusException(
                         HttpStatus.NOT_FOUND,
                         "No patient details found for this mobile number with the specified profile"));
+
     }
 
     @GetMapping("/by-organization/{organizationId}/search")

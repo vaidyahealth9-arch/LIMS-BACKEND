@@ -1,6 +1,7 @@
 package com.halo.lims.dto.organization.test;
 
 import jakarta.validation.constraints.DecimalMin;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
@@ -14,6 +15,11 @@ public class OrganizationTestRequest {
     @DecimalMin(value = "0.0", message = "Price must be non-negative")
     private BigDecimal price; // Optional: Organization-specific price
 
+    private Integer specimenTypeId; // Optional: default specimen type for this org-test
+
+    @Min(value = 1, message = "Number of specimens must be at least 1")
+    private Integer defaultNumberOfSpecimens; // Optional: default specimen count
+
     public OrganizationTestRequest() {}
 
     // Getters and Setters
@@ -25,4 +31,11 @@ public class OrganizationTestRequest {
 
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
+
+    public Integer getSpecimenTypeId() { return specimenTypeId; }
+    public void setSpecimenTypeId(Integer specimenTypeId) { this.specimenTypeId = specimenTypeId; }
+
+    public Integer getDefaultNumberOfSpecimens() { return defaultNumberOfSpecimens; }
+    public void setDefaultNumberOfSpecimens(Integer defaultNumberOfSpecimens) { this.defaultNumberOfSpecimens = defaultNumberOfSpecimens; }
 }
+

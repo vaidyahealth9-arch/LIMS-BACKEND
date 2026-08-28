@@ -13,4 +13,8 @@ public interface TestRepository extends JpaRepository<Test, Integer> {
     boolean existsByLocalCode(String localCode);
     List<Test> findByTestNameContainingIgnoreCase(String testNamePart); // For search functionality
     List<Test> findByDepartment(String department);
+    List<Test> findByOrganizationIsNull();
+    List<Test> findByOrganizationId(Integer organizationId);
+    List<Test> findByOrganizationIsNullAndTestNameContainingIgnoreCase(String testNamePart);
+    List<Test> findByOrganizationIdAndTestNameContainingIgnoreCase(Integer organizationId, String testNamePart);
 }

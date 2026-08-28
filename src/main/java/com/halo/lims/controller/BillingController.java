@@ -121,11 +121,13 @@ public class BillingController {
             @RequestParam(value = "endDate", required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate endDate,
             @RequestParam(value = "query", required = false) String query,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "10") int size) {
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "sortBy", defaultValue = "invoiceDate") String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "DESC") String sortDir) {
         if(StringUtils.isNotBlank(query)){
             query = query.trim();
         }
-        PagedResponse<BillListResponse> response = billingService.searchBills(organizationId, startDate, endDate, query, page, size);
+        PagedResponse<BillListResponse> response = billingService.searchBills(organizationId, startDate, endDate, query, page, size, sortBy, sortDir);
         return ResponseEntity.ok(response);
     }
 }

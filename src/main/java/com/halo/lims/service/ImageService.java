@@ -42,6 +42,10 @@ public class ImageService {
         return reportImageService.buildSparklineSvg(values, w, h, refLow, refHigh);
     }
 
+    public String buildSparklineSvgWithTimestamps(List<com.halo.lims.model.Observation> obsList, int w, int h, BigDecimal refLow, BigDecimal refHigh) {
+        return reportImageService.buildSparklineSvgWithTimestamps(obsList, w, h, refLow, refHigh);
+    }
+
     public void validateImageDataUri(String dataUri, String fieldName) {
         imageValidationUtil.validateBase64DataUri(dataUri, fieldName);
     }

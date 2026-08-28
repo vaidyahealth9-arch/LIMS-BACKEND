@@ -136,6 +136,79 @@ public class PhrInternalClient {
         return java.util.Optional.empty();
     }
 
+    public java.util.Optional<PatientRegistrationResponse> fetchPatientProfileByAccessCode(String code, String mobile) {
+        if (code == null || code.isBlank() || mobile == null || mobile.isBlank()) {
+            return java.util.Optional.empty();
+        }
+
+        if (isCircuitOpen()) {
+            log.warn("PHR internal client circuit open; skipping lookup for access code");
+            return java.util.Optional.empty();
+        }
+
+        String encodedCode = URLEncoder.encode(code.trim().toUpperCase(), StandardCharsets.UTF_8);
+        String encodedMobile = URLEncoder.encode(mobile.trim(), StandardCharsets.UTF_8);
+        String url = resolveBaseUrl() + "/api/v1/auth/users/by-access-code/" + encodedCode + "?mobile=" + encodedMobile;
+
+
+        for (int attempt = 0; attempt < 3; attempt++) {
+            try {
+                log.info("Calling PHR lookup by access code attempt={} url={}", attempt + 1, url);
+                HttpRequest.Builder requestBuilder = HttpRequest.newBuilder()
+                        .uri(URI.create(url))
+                        .timeout(Duration.ofSeconds(10))
+                        .header("Accept", "application/json")
+                        .GET();
+
+                if (isOidcAuthEnabled()) {
+                    requestBuilder.header("Authorization", "Bearer " + fetchIdToken(resolveBaseUrl()));
+                } else {
+                    if (internalSecretKey == null || internalSecretKey.isBlank()) {
+                        throw new IllegalStateException("INTERNAL_SECRET_KEY is required for local internal auth");
+                    }
+                    requestBuilder.header("X-Internal-Secret", internalSecretKey);
+                }
+
+                HttpResponse<String> response = httpClient.send(requestBuilder.build(), HttpResponse.BodyHandlers.ofString());
+                int status = response.statusCode();
+                log.info("PHR lookup by access code response status={}", status);
+
+                if (status == HttpStatus.OK.value()) {
+                    markSuccess();
+                    PatientRegistrationResponse mapped = mapPatientRegistrationResponse(response.body());
+                    log.info("PHR lookup by access code mapped successfully id={}", mapped.getId());
+                    return java.util.Optional.of(mapped);
+                }
+
+                if (status == HttpStatus.NOT_FOUND.value()) {
+                    markSuccess();
+                    return java.util.Optional.empty();
+                }
+
+                if (isRetryableStatus(status) && attempt < 2) {
+                    markFailure();
+                    sleepBackoff(attempt);
+                    continue;
+                }
+
+                markFailure();
+                log.warn("PHR lookup by access code failed with status {}", status);
+                return java.util.Optional.empty();
+            } catch (Exception ex) {
+                markFailure();
+                if (attempt < 2) {
+                    log.warn("PHR lookup by access code attempt {} failed: {}", attempt + 1, ex.toString());
+                    sleepBackoff(attempt);
+                    continue;
+                }
+                log.warn("PHR lookup by access code failed: {}", ex.toString());
+                return java.util.Optional.empty();
+            }
+        }
+
+        return java.util.Optional.empty();
+    }
+
     private PatientRegistrationResponse mapPatientRegistrationResponse(String body) throws Exception {
         JsonNode root = objectMapper.readTree(body);
         PatientRegistrationResponse response = new PatientRegistrationResponse();

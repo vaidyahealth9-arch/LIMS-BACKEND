@@ -14,6 +14,7 @@ import org.apache.commons.lang3.StringUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -385,8 +386,22 @@ public class BillingService {
 
     public PagedResponse<BillListResponse> searchBills(
             Integer organizationId, LocalDate startDate, LocalDate endDate, String query, int page, int size) {
+        return searchBills(organizationId, startDate, endDate, query, page, size, "invoiceDate", "DESC");
+    }
 
-        Pageable pageable = PageRequest.of(page, size);
+    public PagedResponse<BillListResponse> searchBills(
+            Integer organizationId, LocalDate startDate, LocalDate endDate, String query, int page, int size, String sortBy, String sortDir) {
+
+        String mappedSortField = "invoiceDate";
+        if ("name".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "patient.firstName";
+        } else if ("amount".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "totalAmount";
+        } else if ("status".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "status";
+        }
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, mappedSortField));
 
         Specification<Bill> spec = (root, criteriaQuery, cb) -> {
             List<Predicate> predicates = new ArrayList<>();

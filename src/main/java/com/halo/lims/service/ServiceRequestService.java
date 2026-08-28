@@ -16,6 +16,7 @@ import com.halo.lims.security.SecurityService;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -307,6 +308,12 @@ public class ServiceRequestService {
     @Transactional(readOnly = true)
     public PagedResponse<ServiceRequestResponse> getPendingServiceRequests(
             Integer orgId, LocalDate startDate, LocalDate endDate, boolean includeClosed, int page, int size) {
+        return getPendingServiceRequests(orgId, startDate, endDate, includeClosed, page, size, "orderDate", "DESC");
+    }
+
+    @Transactional(readOnly = true)
+    public PagedResponse<ServiceRequestResponse> getPendingServiceRequests(
+            Integer orgId, LocalDate startDate, LocalDate endDate, boolean includeClosed, int page, int size, String sortBy, String sortDir) {
 
         // --- Multi-tenancy check ---
         if (orgId != null && !securityService.isUserInOrganization(orgId)) {
@@ -317,7 +324,14 @@ public class ServiceRequestService {
         // A better approach would be to get a list of user's orgs from SecurityService and add an IN clause.
         // --- End multi-tenancy check ---
 
-        Pageable pageable = PageRequest.of(page, size);
+        String mappedSortField = "orderDate";
+        if ("name".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "patient.firstName";
+        } else if ("status".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "status";
+        }
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, mappedSortField));
 
         Specification<ServiceRequest> spec = (root, query, cb) -> {
             List<jakarta.persistence.criteria.Predicate> predicates = new ArrayList<>();

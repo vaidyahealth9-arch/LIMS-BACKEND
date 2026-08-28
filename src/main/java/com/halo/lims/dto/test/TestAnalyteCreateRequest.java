@@ -7,6 +7,8 @@ import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 public class TestAnalyteCreateRequest {
+    private Integer organizationId;
+
     @NotBlank(message = "Analyte code is required")
     @Size(max = 100)
     private String analyteCode;
@@ -42,6 +44,9 @@ public class TestAnalyteCreateRequest {
     public TestAnalyteCreateRequest() {}
 
     // Getters and Setters
+    public Integer getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Integer organizationId) { this.organizationId = organizationId; }
+
     public String getAnalyteCode() { return analyteCode; }
     public void setAnalyteCode(String analyteCode) { this.analyteCode = analyteCode; }
 

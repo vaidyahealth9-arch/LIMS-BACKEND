@@ -18,6 +18,7 @@ public class TestAnalyteResponse {
     private String biologicalRefInterval;
     private Boolean isDerived;
     private String formula;
+    private Integer organizationId;
     private OffsetDateTime createdAt;
     private OffsetDateTime updatedAt;
 
@@ -71,6 +72,9 @@ public class TestAnalyteResponse {
 
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
+
+    public Integer getOrganizationId() { return organizationId; }
+    public void setOrganizationId(Integer organizationId) { this.organizationId = organizationId; }
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }

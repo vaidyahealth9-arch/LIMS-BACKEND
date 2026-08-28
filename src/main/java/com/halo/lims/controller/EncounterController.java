@@ -101,7 +101,9 @@ public class EncounterController {
             @RequestParam(value = "referringDoctor", required = false) String referringDoctor,
             @RequestParam(value = "hospital", required = false) String hospital,
             @RequestParam(value = "page", defaultValue = "0") int page,
-            @RequestParam(value = "size", defaultValue = "10") int size) {
+            @RequestParam(value = "size", defaultValue = "10") int size,
+            @RequestParam(value = "sortBy", defaultValue = "startTime") String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "DESC") String sortDir) {
         if(StringUtils.isNotBlank(query)){
             query = query.trim();
         }
@@ -129,7 +131,9 @@ public class EncounterController {
                 referringDoctor,
                 hospital,
                 page,
-                size
+                size,
+                sortBy,
+                sortDir
         );
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

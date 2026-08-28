@@ -75,8 +75,10 @@ public class ServiceRequestController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) LocalDate endDate,
             @RequestParam(defaultValue = "false") boolean includeClosed,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "10") int size) {
-        PagedResponse<ServiceRequestResponse> response = serviceRequestService.getPendingServiceRequests(orgId, startDate, endDate, includeClosed, page, size);
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(value = "sortBy", defaultValue = "orderDate") String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "DESC") String sortDir) {
+        PagedResponse<ServiceRequestResponse> response = serviceRequestService.getPendingServiceRequests(orgId, startDate, endDate, includeClosed, page, size, sortBy, sortDir);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }
 

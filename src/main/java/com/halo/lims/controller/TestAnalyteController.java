@@ -12,26 +12,36 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+import com.halo.lims.security.SecurityService;
+import com.halo.lims.model.User;
+
 @RestController
 @RequestMapping("/api/test-analytes")
 public class TestAnalyteController {
 
     private final TestAnalyteService testAnalyteService;
+    private final SecurityService securityService;
 
-    public TestAnalyteController(TestAnalyteService testAnalyteService) {
+    public TestAnalyteController(TestAnalyteService testAnalyteService, SecurityService securityService) {
         this.testAnalyteService = testAnalyteService;
+        this.securityService = securityService;
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ADMIN')") // Only Admin can define global test analytes
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')") // Admin for global, Lab roles for private
     public ResponseEntity<TestAnalyteResponse> createTestAnalyte(@Valid @RequestBody TestAnalyteCreateRequest request) {
+        User user = securityService.getAuthenticatedUser();
+        if (!user.getRoles().contains("ADMIN")) {
+            request.setOrganizationId(user.getOrganization().getId());
+        }
         TestAnalyteResponse response = testAnalyteService.createTestAnalyte(request);
         return new ResponseEntity<>(response, HttpStatus.CREATED);
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
+    @PreAuthorize("hasAnyRole('ADMIN', 'TECHNICIAN', 'DOCTOR')")
     public ResponseEntity<TestAnalyteResponse> updateTestAnalyte(@PathVariable Integer id, @Valid @RequestBody TestAnalyteUpdateRequest request) {
+        // TODO: TestAnalyteService.updateTestAnalyte needs to verify organization ownership if user is not ADMIN
         TestAnalyteResponse response = testAnalyteService.updateTestAnalyte(id, request);
         return new ResponseEntity<>(response, HttpStatus.OK);
     }

@@ -25,6 +25,7 @@ import com.halo.lims.repository.SpecimenRepository;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.data.jpa.domain.Specification;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -398,7 +399,31 @@ public class EncounterService {
             String hospital,
             int page,
             int size) {
-        Pageable pageable = PageRequest.of(page, size);
+        return searchEncounters(organizationId, startDate, endDate, testIds, query, department, sampleCollector, referringDoctor, hospital, page, size, "startTime", "DESC");
+    }
+
+    public PagedResponse<EncounterListResponse> searchEncounters(
+            Integer organizationId,
+            LocalDate startDate,
+            LocalDate endDate,
+            List<Integer> testIds,
+            String query,
+            String department,
+            String sampleCollector,
+            String referringDoctor,
+            String hospital,
+            int page,
+            int size,
+            String sortBy,
+            String sortDir) {
+        String mappedSortField = "startTime";
+        if ("name".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "patient.firstName";
+        } else if ("status".equalsIgnoreCase(sortBy)) {
+            mappedSortField = "status";
+        }
+        Sort.Direction direction = "ASC".equalsIgnoreCase(sortDir) ? Sort.Direction.ASC : Sort.Direction.DESC;
+        Pageable pageable = PageRequest.of(page, size, Sort.by(direction, mappedSortField));
         // For now map query to patientName and ignore other filters not implemented in repository
         return searchEncounters(organizationId, startDate, endDate, query, null, pageable);
     }

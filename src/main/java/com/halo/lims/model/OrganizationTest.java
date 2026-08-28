@@ -34,6 +34,13 @@ public class OrganizationTest {
     @Column(name = "price", precision = 10, scale = 2) // Lab-specific price
     private BigDecimal price;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "specimen_type_id")
+    private SpecimenType specimenType;
+
+    @Column(name = "default_number_of_specimens")
+    private Integer defaultNumberOfSpecimens;
+
     @CreationTimestamp
     @Column(name = "created_at", nullable = false, updatable = false)
     private OffsetDateTime createdAt;
@@ -55,9 +62,16 @@ public class OrganizationTest {
     public BigDecimal getPrice() { return price; }
     public void setPrice(BigDecimal price) { this.price = price; }
 
+    public SpecimenType getSpecimenType() { return specimenType; }
+    public void setSpecimenType(SpecimenType specimenType) { this.specimenType = specimenType; }
+
+    public Integer getDefaultNumberOfSpecimens() { return defaultNumberOfSpecimens; }
+    public void setDefaultNumberOfSpecimens(Integer defaultNumberOfSpecimens) { this.defaultNumberOfSpecimens = defaultNumberOfSpecimens; }
+
     public OffsetDateTime getCreatedAt() { return createdAt; }
     public void setCreatedAt(OffsetDateTime createdAt) { this.createdAt = createdAt; }
 
     public OffsetDateTime getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(OffsetDateTime updatedAt) { this.updatedAt = updatedAt; }
 }
+

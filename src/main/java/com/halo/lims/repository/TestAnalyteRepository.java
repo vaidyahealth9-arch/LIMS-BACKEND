@@ -14,4 +14,7 @@ public interface TestAnalyteRepository extends JpaRepository<TestAnalyte, Intege
     boolean existsByAnalyteCode(String analyteCode);
 
     boolean existsByParentTestId(Integer id);
+
+    List<TestAnalyte> findByOrganizationIsNull();
+    List<TestAnalyte> findByOrganizationId(Integer organizationId);
 }

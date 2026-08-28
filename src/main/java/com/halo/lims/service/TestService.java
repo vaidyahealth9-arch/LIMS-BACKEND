@@ -7,6 +7,8 @@ import com.halo.lims.model.Test;
 import com.halo.lims.repository.OrganizationTestRepository;
 import com.halo.lims.repository.TestAnalyteRepository;
 import com.halo.lims.repository.TestRepository;
+import com.halo.lims.repository.OrganizationRepository;
+import com.halo.lims.model.Organization;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,13 +21,16 @@ public class TestService {
     private final TestRepository testRepository;
     private final TestAnalyteRepository testAnalyteRepository; // For checking dependencies before delete
     private final OrganizationTestRepository organizationTestRepository; // For checking dependencies before delete
+    private final OrganizationRepository organizationRepository;
 
     public TestService(TestRepository testRepository,
                        TestAnalyteRepository testAnalyteRepository,
-                       OrganizationTestRepository organizationTestRepository) {
+                       OrganizationTestRepository organizationTestRepository,
+                       OrganizationRepository organizationRepository) {
         this.testRepository = testRepository;
         this.testAnalyteRepository = testAnalyteRepository;
         this.organizationTestRepository = organizationTestRepository;
+        this.organizationRepository = organizationRepository;
     }
 
     /**
@@ -39,7 +44,14 @@ public class TestService {
             throw new IllegalArgumentException("Test with local code " + request.getLocalCode() + " already exists.");
         }
 
+        Organization org = null;
+        if (request.getOrganizationId() != null) {
+            org = organizationRepository.findById(request.getOrganizationId())
+                    .orElseThrow(() -> new IllegalArgumentException("Organization not found with ID: " + request.getOrganizationId()));
+        }
+
         Test test = Test.builder()
+                .organization(org)
                 .testName(request.getTestName())
                 .localCode(request.getLocalCode())
                 .loincCode(request.getLoincCode())
@@ -158,6 +170,9 @@ public class TestService {
         response.setTurnAroundTimeText(test.getTurnAroundTimeText());
         response.setReflexProfileText(test.getReflexProfileText());
         response.setReportNotes(test.getReportNotes());
+        if (test.getOrganization() != null) {
+            response.setOrganizationId(test.getOrganization().getId());
+        }
         response.setCreatedAt(test.getCreatedAt());
         response.setUpdatedAt(test.getUpdatedAt());
         return response;

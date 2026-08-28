@@ -15,7 +15,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Repository
-public interface PatientRepository extends JpaRepository<Patient, Integer> {
+public interface PatientRepository extends JpaRepository<Patient, Integer>, org.springframework.data.jpa.repository.JpaSpecificationExecutor<Patient> {
 
     List<Patient> findByOrganization(Organization organization);
     List<Patient> findByOrganizationId(Integer organizationId);

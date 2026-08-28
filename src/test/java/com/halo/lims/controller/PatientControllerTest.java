@@ -74,4 +74,28 @@ class PatientControllerTest {
                 .andExpect(jsonPath("$.lastName").value("Sharma"))
                 .andExpect(jsonPath("$.contactPhone").value("9876543210"));
     }
+
+    @Test
+    @WithMockUser(roles = "RECEPTIONIST")
+    void lookupPatientFromPhrByAccessCode_shouldReturnPrefillPayload() throws Exception {
+        PatientRegistrationResponse response = new PatientRegistrationResponse();
+        response.setId(42);
+        response.setFirstName("Pooja");
+        response.setLastName("Sharma");
+        response.setGender("female");
+        response.setDateOfBirth(LocalDate.of(1995, 3, 22));
+        response.setContactPhone("9876543210");
+        response.setContactEmail("pooja.sharma@email.com");
+
+        given(patientService.findPatientByAccessCodeAndMobile("XY92B7", "9876543210")).willReturn(Optional.of(response));
+
+        mockMvc.perform(get("/api/patients/phr-lookup")
+                        .param("accessCode", "XY92B7")
+                        .param("mobile", "9876543210"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Pooja"))
+                .andExpect(jsonPath("$.lastName").value("Sharma"))
+                .andExpect(jsonPath("$.contactPhone").value("9876543210"));
+    }
+
 }
