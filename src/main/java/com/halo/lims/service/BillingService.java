@@ -125,7 +125,8 @@ public class BillingService {
                 if (!orgTest.getIsEnabled()) {
                     throw new IllegalArgumentException("Test '" + item.getTest().getTestName() + "' is disabled for organization " + organization.getOrganizationName());
                 }
-                totalAmount = totalAmount.add(orgTest.getPrice());
+                BigDecimal itemPrice = orgTest.getPrice() != null ? orgTest.getPrice() : BigDecimal.ZERO;
+                totalAmount = totalAmount.add(itemPrice);
             }
         }
 
@@ -267,7 +268,8 @@ public class BillingService {
             for (ServiceRequestItem item : srItems) {
                 OrganizationTest orgTest = orgTestMap.get(item.getTest().getId());
                 if (orgTest == null) throw new RuntimeException("Test '" + item.getTest().getTestName() + "' not configured");
-                newTotalAmount = newTotalAmount.add(orgTest.getPrice());
+                BigDecimal itemPrice = orgTest.getPrice() != null ? orgTest.getPrice() : BigDecimal.ZERO;
+                newTotalAmount = newTotalAmount.add(itemPrice);
             }
         }
         
@@ -553,7 +555,11 @@ public class BillingService {
         List<OrganizationTest> orgTests = organizationTestRepository.findByOrganization_Id(bill.getOrganization().getId());
         Map<Integer, BigDecimal> priceMap = orgTests.stream()
                 .filter(ot -> ot.getTest() != null)
-                .collect(Collectors.toMap(ot -> ot.getTest().getId(), OrganizationTest::getPrice, (p1, p2) -> p1));
+                .collect(Collectors.toMap(
+                        ot -> ot.getTest().getId(),
+                        ot -> ot.getPrice() != null ? ot.getPrice() : BigDecimal.ZERO,
+                        (p1, p2) -> p1
+                ));
 
         List<BillResponse.BillServiceRequestDetails> srDetails = serviceRequests.stream().map(sr -> {
             BillResponse.BillServiceRequestDetails details = new BillResponse.BillServiceRequestDetails();

@@ -82,6 +82,7 @@ public class GlobalExceptionHandler {
             RuntimeException ex,
             HttpServletRequest request
     ) {
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unhandled RuntimeException: {}", ex.getMessage(), ex);
         String message = ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred";
 
         HttpStatus status = HttpStatus.INTERNAL_SERVER_ERROR;
@@ -157,6 +158,7 @@ public class GlobalExceptionHandler {
             Exception ex,
             HttpServletRequest request
     ) {
+        org.slf4j.LoggerFactory.getLogger(GlobalExceptionHandler.class).error("Unhandled Exception: {}", ex.getMessage(), ex);
         ApiErrorResponse response = buildErrorResponse(
                 HttpStatus.INTERNAL_SERVER_ERROR,
                 ex.getMessage() != null ? ex.getMessage() : "An unexpected error occurred",
